@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualização de Imagens de Produtos</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        h1 {
+            color: white;
+            margin: 0;
+            font-size: 2.5em;
+        }
+        .content {
+            padding: 30px;
+        }
+        .status {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .product-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+            cursor: pointer;
+        }
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        .product-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #f0f0f0;
+        }
+        .product-info {
+            padding: 15px;
+        }
+        .product-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .product-asin {
+            color: #666;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        .product-sku {
+            color: #999;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+        .product-price {
+            color: #0066c0;
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
+            color: #666;
+        }
+        .error {
+            background: #fee;
+            color: #c00;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .no-image {
+            width: 100%;
+            height: 250px;
+            background: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Visualização de Produtos com Imagens</h1>
+    <div id="loading" class="loading">Carregando produtos...</div>
+    <div id="products-container" class="products-grid" style="display: none;"></div>
+    <div id="error-container"></div>
+
+    <script>
+        async function loadProducts() {
+            try {
+                // Conectar ao servidor AI Query que tem acesso ao banco
+                const response = await fetch('http://localhost:8086/api/ai-query/test-products');
+                
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar produtos: ' + response.statusText);
+                }
+                
+                const result = await response.json();
+                console.log('Produtos carregados:', result);
+                
+                // Mapear os dados do formato retornado pelo banco
+                const products = result.data.map(row => ({
+                    asin: row.ASIN,
+                    sku: row.SKU,
+                    title: row.Produto,
+                    price: parseFloat(row.Preço) || 0,
+                    image_url: row.Imagem
+                }));
+                
+                displayProducts(products);
+                
+            } catch (error) {
+                console.error('Erro ao carregar produtos:', error);
+                document.getElementById('loading').innerHTML = 
+                    '<div class="error">Erro ao carregar produtos. Certifique-se de que o servidor está rodando em http://localhost:8086</div>';
+            }
+        }
+
+        function displayProducts(products) {
+            const container = document.getElementById('products-container');
+            const loading = document.getElementById('loading');
+            const errorContainer = document.getElementById('error-container');
+            
+            loading.style.display = 'none';
+            
+            if (!products || products.length === 0) {
+                errorContainer.innerHTML = '<div class="error">Nenhum produto encontrado.</div>';
+                return;
+            }
+            
+            container.innerHTML = products.map(product => {
+                // Se a imagem é uma URL local, use diretamente
+                // Se é uma URL da Amazon, use o proxy
+                let imageSrc = '';
+                if (product.image_url) {
+                    if (product.image_url.startsWith('/product-images/') || product.image_url.startsWith('http://localhost')) {
+                        // URL local, use diretamente
+                        imageSrc = product.image_url;
+                    } else if (product.image_url.includes('media-amazon.com') || product.image_url.includes('images-na.ssl-images-amazon.com')) {
+                        // URL da Amazon, use o proxy
+                        imageSrc = `http://localhost:8086/api/image-proxy?url=${encodeURIComponent(product.image_url)}`;
+                    } else {
+                        imageSrc = product.image_url;
+                    }
+                }
+                
+                return `
+                    <div class="product-card">
+                        ${imageSrc ? 
+                            `<img src="${imageSrc}" alt="${product.title}" class="product-image" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'no-image\\'>Imagem não disponível</div>'">` :
+                            '<div class="no-image">Sem imagem</div>'
+                        }
+                        <div class="product-info">
+                            <div class="product-title">${product.title || 'Produto sem título'}</div>
+                            <div class="product-asin">ASIN: ${product.asin}</div>
+                            <div class="product-sku">SKU: ${product.sku || 'N/A'}</div>
+                            <div class="product-price">R$ ${(product.price || 0).toFixed(2)}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.style.display = 'grid';
+        }
+
+        // Carregar produtos ao abrir a página
+        loadProducts();
+    </script>
+</body>
+</html>

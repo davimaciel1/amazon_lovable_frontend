@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Produtos - Amazon Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f6fa;
+            min-height: 100vh;
+        }
+        
+        .dashboard-layout {
+            display: flex;
+            height: 100vh;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: #2c3e50;
+            color: white;
+            transition: width 0.3s ease;
+        }
+        
+        .logo {
+            padding: 20px;
+            background: #1a252f;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .logo h1 {
+            font-size: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .nav-menu {
+            padding: 20px 0;
+        }
+        
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .nav-item:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        
+        .nav-item.active {
+            background: #3498db;
+            color: white;
+            position: relative;
+        }
+        
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: #2980b9;
+        }
+        
+        .nav-item i {
+            width: 24px;
+            margin-right: 12px;
+            text-align: center;
+        }
+        
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        /* Header */
+        .header {
+            background: white;
+            padding: 15px 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h2 {
+            color: #333;
+            font-size: 24px;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        /* Content */
+        .content {
+            padding: 30px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        
+        /* Filters and Controls */
+        .controls-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            position: relative;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 10px 40px 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .search-box::after {
+            content: "🔍";
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .filter-group label {
+            font-size: 12px;
+            color: #7f8c8d;
+            font-weight: 600;
+        }
+        
+        .filter-group select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+        
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #229954;
+        }
+        
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .stat-card.active::before {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+        
+        .stat-card.stock::before {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        .stat-card.value::before {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .stat-change {
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        .stat-change.positive {
+            color: #27ae60;
+        }
+        
+        .stat-change.negative {
+            color: #e74c3c;
+        }
+        
+        /* Products Table */
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .table-header {
+            padding: 20px;
+            border-bottom: 1px solid #ecf0f1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .table-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        thead {
+            background: #f8f9fa;
+        }
+        
+        th {
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            border-bottom: 2px solid #ecf0f1;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #f1f3f5;
+            font-size: 14px;
+            color: #2c3e50;
+        }
+        
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .product-cell {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .product-image {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+            border-radius: 5px;
+            background: #f8f9fa;
+            padding: 5px;
+        }
+        
+        .product-info {
+            flex: 1;
+        }
+        
+        .product-name {
+            font-weight: 500;
+            color: #2c3e50;
+            margin-bottom: 2px;
+        }
+        
+        .product-sku {
+            font-size: 12px;
+            color: #95a5a6;
+        }
+        
+        .stock-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .stock-high {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .stock-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .stock-low {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .stock-out {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+        
+        .pagination {
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .page-btn {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .page-btn:hover {
+            background: #f8f9fa;
+        }
+        
+        .page-btn.active {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+        
+        .page-info {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>📦 Amazon Monitor</h1>
+            </div>
+            <nav class="nav-menu">
+                <a href="dashboard.html" class="nav-item">
+                    <i>📊</i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="sales-dashboard-complete.html" class="nav-item">
+                    <i>💰</i>
+                    <span>Vendas</span>
+                </a>
+                <a href="produtos.html" class="nav-item active">
+                    <i>📦</i>
+                    <span>Produtos</span>
+                </a>
+                <a href="relatorios.html" class="nav-item">
+                    <i>📈</i>
+                    <span>Relatórios</span>
+                </a>
+                <a href="configuracoes.html" class="nav-item">
+                    <i>⚙️</i>
+                    <span>Configurações</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <h2>Gestão de Produtos</h2>
+                <div class="header-actions">
+                    <button class="btn btn-primary" onclick="refreshProducts()">
+                        🔄 Atualizar
+                    </button>
+                    <button class="btn btn-success" onclick="exportProducts()">
+                        💾 Exportar
+                    </button>
+                </div>
+            </header>
+            
+            <!-- Content -->
+            <div class="content">
+
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total de Produtos</div>
+                        <div class="stat-value" id="totalProducts">0</div>
+                        <div class="stat-change positive">+5% vs mês anterior</div>
+                    </div>
+                    <div class="stat-card active">
+                        <div class="stat-label">Produtos Ativos</div>
+                        <div class="stat-value" id="activeProducts">0</div>
+                        <div class="stat-change positive">+12 novos</div>
+                    </div>
+                    <div class="stat-card stock">
+                        <div class="stat-label">Em Estoque</div>
+                        <div class="stat-value" id="inStock">0</div>
+                        <div class="stat-change negative">-3% vs semana anterior</div>
+                    </div>
+                    <div class="stat-card value">
+                        <div class="stat-label">Valor Total</div>
+                        <div class="stat-value" id="totalValue">R$ 0</div>
+                        <div class="stat-change positive">+8% vs mês anterior</div>
+                    </div>
+                </div>
+
+        <!-- Controls -->
+        <div class="controls-section">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Buscar por nome, ASIN ou SKU...">
+            </div>
+            <div class="filter-group">
+                <label>Categoria</label>
+                <select id="categoryFilter">
+                    <option value="">Todas</option>
+                    <option value="General">General</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Status do Estoque</label>
+                <select id="stockFilter">
+                    <option value="">Todos</option>
+                    <option value="in_stock">Em Estoque</option>
+                    <option value="low_stock">Estoque Baixo</option>
+                    <option value="out_stock">Sem Estoque</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="applyFilters()">Filtrar</button>
+            <button class="btn btn-success" onclick="exportProducts()">Exportar</button>
+        </div>
+
+        <!-- Products Table -->
+        <div class="table-container">
+            <div class="table-header">
+                <h3 class="table-title">Lista de Produtos</h3>
+                <button class="btn btn-primary btn-sm" onclick="refreshProducts()">Atualizar</button>
+            </div>
+            <div id="loading" class="loading">Carregando produtos...</div>
+            <table id="productsTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Produto</th>
+                        <th>ASIN</th>
+                        <th>Preço</th>
+                        <th>Estoque</th>
+                        <th>Status</th>
+                        <th>Categoria</th>
+                        <th>Avaliação</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="productsTableBody">
+                    <!-- Products will be inserted here -->
+                </tbody>
+            </table>
+            <div class="pagination" id="pagination" style="display: none;">
+                <button class="page-btn" onclick="previousPage()">←</button>
+                <span class="page-info" id="pageInfo">Página 1 de 1</span>
+                <button class="page-btn" onclick="nextPage()">→</button>
+            </div>
+        </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let allProducts = [];
+        let filteredProducts = [];
+        let currentPage = 1;
+        const productsPerPage = 10;
+
+        async function loadProducts() {
+            try {
+                const response = await fetch('http://localhost:8086/api/ai-query/execute', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        sql: `
+                            SELECT 
+                                p.asin,
+                                p.sku,
+                                p.title,
+                                p.price,
+                                p.inventory_quantity,
+                                p.category,
+                                p.rating,
+                                p.image_url,
+                                p.marketplace_id,
+                                COUNT(DISTINCT oi.amazon_order_id) as total_orders
+                            FROM products p
+                            LEFT JOIN order_items oi ON oi.asin = p.asin
+                            WHERE p.asin IS NOT NULL
+                            GROUP BY p.asin, p.sku, p.title, p.price, p.inventory_quantity, 
+                                     p.category, p.rating, p.image_url, p.marketplace_id
+                            ORDER BY p.title
+                        `
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.data) {
+                    allProducts = result.data;
+                    filteredProducts = allProducts;
+                    updateStats();
+                    displayProducts();
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('productsTable').style.display = 'table';
+                    document.getElementById('pagination').style.display = 'flex';
+                }
+            } catch (error) {
+                console.error('Erro ao carregar produtos:', error);
+                document.getElementById('loading').innerHTML = 
+                    '<div style="color: red;">Erro ao carregar produtos. Verifique se o servidor está rodando.</div>';
+            }
+        }
+
+        function updateStats() {
+            const totalProducts = allProducts.length;
+            const inStock = allProducts.filter(p => p.inventory_quantity > 0).length;
+            const totalValue = allProducts.reduce((sum, p) => 
+                sum + (parseFloat(p.price || 0) * parseFloat(p.inventory_quantity || 0)), 0
+            );
+
+            document.getElementById('totalProducts').textContent = totalProducts;
+            document.getElementById('activeProducts').textContent = totalProducts;
+            document.getElementById('inStock').textContent = inStock;
+            document.getElementById('totalValue').textContent = 
+                `R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+
+        function getStockStatus(quantity) {
+            const qty = parseInt(quantity) || 0;
+            if (qty === 0) return { class: 'stock-out', text: 'Sem Estoque' };
+            if (qty < 10) return { class: 'stock-low', text: 'Estoque Baixo' };
+            if (qty < 50) return { class: 'stock-medium', text: 'Estoque Médio' };
+            return { class: 'stock-high', text: 'Em Estoque' };
+        }
+
+        function getImageSrc(imageUrl) {
+            if (!imageUrl) return '';
+            
+            if (imageUrl.startsWith('/product-images/')) {
+                return `http://localhost:8086${imageUrl}`;
+            } else if (imageUrl.includes('amazon.com')) {
+                return `http://localhost:8086/api/image-proxy?url=${encodeURIComponent(imageUrl)}`;
+            }
+            return imageUrl;
+        }
+
+        function displayProducts() {
+            const tbody = document.getElementById('productsTableBody');
+            const startIndex = (currentPage - 1) * productsPerPage;
+            const endIndex = startIndex + productsPerPage;
+            const pageProducts = filteredProducts.slice(startIndex, endIndex);
+
+            tbody.innerHTML = pageProducts.map(product => {
+                const stockStatus = getStockStatus(product.inventory_quantity);
+                const imageSrc = getImageSrc(product.image_url);
+                
+                return `
+                    <tr>
+                        <td>
+                            <div class="product-cell">
+                                ${imageSrc ? 
+                                    `<img src="${imageSrc}" alt="${product.title}" class="product-image" 
+                                         onerror="this.style.display='none'">` : 
+                                    '<div class="product-image" style="background: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #999;">📦</div>'
+                                }
+                                <div class="product-info">
+                                    <div class="product-name">${product.title || 'Sem título'}</div>
+                                    <div class="product-sku">SKU: ${product.sku || 'N/A'}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>${product.asin}</td>
+                        <td>R$ ${parseFloat(product.price || 0).toFixed(2)}</td>
+                        <td>${product.inventory_quantity || 0} unid.</td>
+                        <td><span class="stock-badge ${stockStatus.class}">${stockStatus.text}</span></td>
+                        <td>${product.category || 'Sem categoria'}</td>
+                        <td>⭐ ${parseFloat(product.rating || 0).toFixed(1)}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn btn-primary btn-sm" onclick="editProduct('${product.asin}')">Editar</button>
+                                <button class="btn btn-sm" onclick="viewDetails('${product.asin}')">Detalhes</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            updatePagination();
+        }
+
+        function updatePagination() {
+            const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+            document.getElementById('pageInfo').textContent = `Página ${currentPage} de ${totalPages}`;
+        }
+
+        function previousPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                displayProducts();
+            }
+        }
+
+        function nextPage() {
+            const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                displayProducts();
+            }
+        }
+
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const category = document.getElementById('categoryFilter').value;
+            const stockStatus = document.getElementById('stockFilter').value;
+
+            filteredProducts = allProducts.filter(product => {
+                // Search filter
+                const matchesSearch = !searchTerm || 
+                    product.title?.toLowerCase().includes(searchTerm) ||
+                    product.asin?.toLowerCase().includes(searchTerm) ||
+                    product.sku?.toLowerCase().includes(searchTerm);
+
+                // Category filter
+                const matchesCategory = !category || product.category === category;
+
+                // Stock filter
+                let matchesStock = true;
+                if (stockStatus) {
+                    const qty = parseInt(product.inventory_quantity) || 0;
+                    if (stockStatus === 'in_stock') matchesStock = qty > 10;
+                    else if (stockStatus === 'low_stock') matchesStock = qty > 0 && qty <= 10;
+                    else if (stockStatus === 'out_stock') matchesStock = qty === 0;
+                }
+
+                return matchesSearch && matchesCategory && matchesStock;
+            });
+
+            currentPage = 1;
+            displayProducts();
+        }
+
+        function refreshProducts() {
+            loadProducts();
+        }
+
+        function exportProducts() {
+            const csv = [
+                ['ASIN', 'SKU', 'Título', 'Preço', 'Estoque', 'Categoria', 'Avaliação'],
+                ...filteredProducts.map(p => [
+                    p.asin,
+                    p.sku || '',
+                    p.title || '',
+                    p.price || '0',
+                    p.inventory_quantity || '0',
+                    p.category || '',
+                    p.rating || '0'
+                ])
+            ].map(row => row.join(',')).join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `produtos_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+        }
+
+        function editProduct(asin) {
+            alert(`Editar produto: ${asin}`);
+        }
+
+        function viewDetails(asin) {
+            const product = allProducts.find(p => p.asin === asin);
+            if (product) {
+                alert(`Detalhes do produto:\n\nASIN: ${product.asin}\nTítulo: ${product.title}\nPreço: R$ ${product.price}\nEstoque: ${product.inventory_quantity}`);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+        document.getElementById('categoryFilter').addEventListener('change', applyFilters);
+        document.getElementById('stockFilter').addEventListener('change', applyFilters);
+
+        // Load products on page load
+        loadProducts();
+    </script>
+</body>
+</html>

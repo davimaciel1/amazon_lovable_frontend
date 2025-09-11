@@ -1,0 +1,58 @@
+# Docker Compose for Amazon Integration System
+version: '3.8'
+
+services:
+  # Backend Unificado
+  backend:
+    build: ./amazon-unified-backend
+    ports:
+      - "3333:3333"
+    environment:
+      NODE_ENV: production
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./logs:/app/logs
+      - ./backup:/app/backup
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3333/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+  
+  # Frontend Lovable
+  frontend:
+    build: ./lovable-frontend
+    ports:
+      - "8083:8083"
+    environment:
+      VITE_API_URL: http://backend:3333
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Sync Scheduler (integrado ao backend unificado)
+  sync-scheduler:
+    build: ./amazon-unified-backend
+    command: node dist/jobs/scheduler.js
+    environment:
+      NODE_ENV: production
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  logs:
+
+networks:
+  default:
+    name: amazon-integration-network

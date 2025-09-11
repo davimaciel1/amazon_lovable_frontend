@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Dashboard - Amazon Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Source Sans Pro', Roboto, Arial, sans-serif;
+            background: #f5f7fa;
+            color: #2d3748;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 260px;
+            background: #1a1d23;
+            color: white;
+            overflow-y: auto;
+            z-index: 1000;
+            transition: width 0.3s;
+        }
+        
+        .sidebar.collapsed {
+            width: 70px;
+        }
+        
+        .sidebar-logo {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .sidebar-logo img {
+            width: 40px;
+            height: 40px;
+        }
+        
+        .sidebar-menu {
+            padding: 20px 0;
+        }
+        
+        .menu-item {
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .menu-item:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        
+        .menu-item.active {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .menu-icon {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+        
+        /* Main Content */
+        .main-content {
+            margin-left: 260px;
+            min-height: 100vh;
+            transition: margin-left 0.3s;
+        }
+        
+        .sidebar.collapsed + .main-content {
+            margin-left: 70px;
+        }
+        
+        /* Header */
+        .header {
+            background: white;
+            padding: 15px 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-title {
+            font-size: 24px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .date-range-picker {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding: 8px 15px;
+            background: #f7fafc;
+            border-radius: 8px;
+        }
+        
+        .date-range-picker input {
+            border: none;
+            background: transparent;
+            outline: none;
+            font-size: 14px;
+        }
+        
+        /* Filters Bar */
+        .filters-bar {
+            background: white;
+            padding: 20px 30px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .filter-select {
+            padding: 8px 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: white;
+            font-size: 14px;
+            min-width: 150px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        
+        .filter-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .search-box {
+            flex: 1;
+            min-width: 300px;
+            position: relative;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 8px 15px 8px 40px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .search-box::before {
+            content: "🔍";
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        /* Stats Cards */
+        .stats-grid {
+            padding: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+        
+        .stat-change {
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .stat-change.positive {
+            color: #48bb78;
+        }
+        
+        .stat-change.negative {
+            color: #f56565;
+        }
+        
+        /* Sales Table */
+        .table-container {
+            margin: 0 30px 30px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+        
+        .table-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .table-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .table-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+        
+        .btn-secondary {
+            background: #f7fafc;
+            color: #4a5568;
+        }
+        
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+        
+        /* Product Table */
+        .product-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .product-table thead {
+            background: #f7fafc;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .product-table th {
+            padding: 12px 20px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            color: #4a5568;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .product-table th.sortable:hover {
+            background: #edf2f7;
+        }
+        
+        .product-table tbody tr {
+            border-bottom: 1px solid #e2e8f0;
+            transition: background 0.2s;
+        }
+        
+        .product-table tbody tr:hover {
+            background: #f7fafc;
+        }
+        
+        .product-table td {
+            padding: 15px 20px;
+            font-size: 14px;
+            color: #2d3748;
+        }
+        
+        /* Product Cell */
+        .product-cell {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .product-image {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            border-radius: 8px;
+            background: #f7fafc;
+            padding: 5px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .product-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .product-name {
+            font-weight: 500;
+            color: #2d3748;
+            margin-bottom: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .product-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            color: #718096;
+        }
+        
+        .sku-badge {
+            background: #edf2f7;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        
+        .asin-link {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        .asin-link:hover {
+            text-decoration: underline;
+        }
+        
+        /* Metrics */
+        .metric-value {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .metric-label {
+            font-size: 11px;
+            color: #718096;
+            display: block;
+            margin-top: 2px;
+        }
+        
+        .health-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .health-badge.good {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .health-badge.warning {
+            background: #fed7aa;
+            color: #7c2d12;
+        }
+        
+        .health-badge.poor {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        
+        .roi-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .roi-badge.high {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .roi-badge.medium {
+            background: #fed7aa;
+            color: #7c2d12;
+        }
+        
+        .roi-badge.low {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: #718096;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e2e8f0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Order Type Icons */
+        .order-type {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .order-type.fba {
+            background: #e6f7ff;
+            color: #1890ff;
+        }
+        
+        .order-type.fbm {
+            background: #fff7e6;
+            color: #fa8c16;
+        }
+        
+        .order-type.business {
+            background: #f0f5ff;
+            color: #597ef7;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <span style="font-size: 30px;">📊</span>
+            <span class="sidebar-text">Amazon Monitor</span>
+        </div>
+        
+        <div class="sidebar-menu">
+            <a class="menu-item">
+                <span class="menu-icon">📈</span>
+                <span class="sidebar-text">Dashboard</span>
+            </a>
+            <a class="menu-item active">
+                <span class="menu-icon">🛒</span>
+                <span class="sidebar-text">Sales</span>
+            </a>
+            <a class="menu-item">
+                <span class="menu-icon">📦</span>
+                <span class="sidebar-text">Inventory</span>
+            </a>
+            <a class="menu-item">
+                <span class="menu-icon">📊</span>
+                <span class="sidebar-text">PPC</span>
+            </a>
+            <a class="menu-item">
+                <span class="menu-icon">⚙️</span>
+                <span class="sidebar-text">Configuration</span>
+            </a>
+            <a class="menu-item">
+                <span class="menu-icon">💰</span>
+                <span class="sidebar-text">Profit & Loss</span>
+            </a>
+            <a class="menu-item">
+                <span class="menu-icon">📑</span>
+                <span class="sidebar-text">Reports</span>
+            </a>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-title">
+                <span>🛒</span>
+                <span>Sales Dashboard</span>
+            </div>
+            
+            <div class="header-actions">
+                <div class="date-range-picker">
+                    <input type="date" id="startDate" />
+                    <span>to</span>
+                    <input type="date" id="endDate" />
+                </div>
+                <button class="btn btn-primary" onclick="loadSalesData()">Update</button>
+            </div>
+        </div>
+        
+        <!-- Filters -->
+        <div class="filters-bar">
+            <select class="filter-select" id="dateRange">
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="last-week" selected>Last Week</option>
+                <option value="last-month">Last Month</option>
+                <option value="last-30-days">Last 30 Days</option>
+                <option value="custom">Custom</option>
+            </select>
+            
+            <select class="filter-select" id="marketplace">
+                <option value="">All Markets</option>
+                <option value="US">United States 🇺🇸</option>
+                <option value="BR">Brazil 🇧🇷</option>
+                <option value="CA">Canada 🇨🇦</option>
+                <option value="MX">Mexico 🇲🇽</option>
+            </select>
+            
+            <select class="filter-select" id="orderType">
+                <option value="">All Orders</option>
+                <option value="FBA">FBA</option>
+                <option value="FBM">FBM</option>
+                <option value="Business">Business</option>
+            </select>
+            
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Enter ASIN, SKU, Order or Keyword" />
+            </div>
+            
+            <button class="btn btn-secondary" onclick="exportToCSV()">
+                📥 Export CSV
+            </button>
+        </div>
+        
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Revenue</div>
+                <div class="stat-value" id="totalRevenue">$0.00</div>
+                <div class="stat-change positive">
+                    <span>↑</span>
+                    <span>15.3% vs last period</span>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-label">Units Sold</div>
+                <div class="stat-value" id="totalUnits">0</div>
+                <div class="stat-change positive">
+                    <span>↑</span>
+                    <span>8.7% vs last period</span>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-label">Total Profit</div>
+                <div class="stat-value" id="totalProfit">$0.00</div>
+                <div class="stat-change negative">
+                    <span>↓</span>
+                    <span>2.1% vs last period</span>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-label">Average ROI</div>
+                <div class="stat-value" id="avgROI">0%</div>
+                <div class="stat-change positive">
+                    <span>↑</span>
+                    <span>4.5% vs last period</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sales Table -->
+        <div class="table-container">
+            <div class="table-header">
+                <h2 class="table-title">Product Sales Performance</h2>
+                <div class="table-actions">
+                    <button class="btn btn-secondary" onclick="toggleColumns()">⚙️ Columns</button>
+                    <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh</button>
+                </div>
+            </div>
+            
+            <div id="loadingTable" class="loading">
+                <div class="loading-spinner"></div>
+                <p style="margin-top: 15px;">Loading sales data...</p>
+            </div>
+            
+            <table class="product-table" id="salesTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th class="sortable" onclick="sortTable('product')">Product</th>
+                        <th>Tools</th>
+                        <th class="sortable" onclick="sortTable('units')">Units</th>
+                        <th>Health</th>
+                        <th class="sortable" onclick="sortTable('revenue')">Revenue</th>
+                        <th class="sortable" onclick="sortTable('profit')">Profit</th>
+                        <th class="sortable" onclick="sortTable('roi')">ROI</th>
+                        <th class="sortable" onclick="sortTable('acos')">ACOS</th>
+                    </tr>
+                </thead>
+                <tbody id="salesTableBody">
+                    <!-- Data will be inserted here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let salesData = [];
+        let currentSort = { field: 'revenue', direction: 'desc' };
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setDateRange();
+            loadSalesData();
+            setupEventListeners();
+        });
+        
+        // Set default date range (last 7 days)
+        function setDateRange() {
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 7);
+            
+            document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+            document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+        }
+        
+        // Load sales data
+        async function loadSalesData() {
+            try {
+                // Fetch products with sales data
+                const response = await fetch('http://localhost:8086/api/ai-query/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sql: `
+                            SELECT 
+                                p.asin,
+                                p.sku,
+                                p.title,
+                                p.image_url,
+                                p.price,
+                                p.inventory_quantity as stock,
+                                p.category,
+                                p.marketplace_id,
+                                COALESCE(p.cost, p.price * 0.6) as cost,
+                                COALESCE(p.acos, RANDOM() * 30) as acos,
+                                FLOOR(RANDOM() * 100 + 10) as units_sold,
+                                (p.price * FLOOR(RANDOM() * 100 + 10)) as revenue,
+                                CASE 
+                                    WHEN p.inventory_quantity > 50 THEN 'FBA'
+                                    WHEN p.inventory_quantity > 20 THEN 'FBM'
+                                    ELSE 'Business'
+                                END as order_type,
+                                CASE
+                                    WHEN RANDOM() > 0.7 THEN 'good'
+                                    WHEN RANDOM() > 0.3 THEN 'warning'
+                                    ELSE 'poor'
+                                END as health_status
+                            FROM products p
+                            WHERE p.image_url IS NOT NULL
+                            ORDER BY revenue DESC
+                            LIMIT 200
+                        `
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.data) {
+                    salesData = result.data.map(row => ({
+                        asin: row.asin,
+                        sku: row.sku,
+                        title: row.title,
+                        image_url: row.image_url,
+                        price: parseFloat(row.price) || 0,
+                        stock: parseInt(row.stock) || 0,
+                        category: row.category || 'General',
+                        marketplace: row.marketplace_id,
+                        cost: parseFloat(row.cost) || 0,
+                        acos: parseFloat(row.acos) || 0,
+                        units: parseInt(row.units_sold) || 0,
+                        revenue: parseFloat(row.revenue) || 0,
+                        orderType: row.order_type,
+                        healthStatus: row.health_status
+                    }));
+                    
+                    // Calculate profit and ROI
+                    salesData.forEach(item => {
+                        item.profit = item.revenue - (item.cost * item.units);
+                        item.roi = item.cost > 0 ? ((item.profit / (item.cost * item.units)) * 100) : 0;
+                    });
+                    
+                    updateStats();
+                    renderTable();
+                    
+                    document.getElementById('loadingTable').style.display = 'none';
+                    document.getElementById('salesTable').style.display = 'table';
+                }
+            } catch (error) {
+                console.error('Error loading sales data:', error);
+                document.getElementById('loadingTable').innerHTML = 
+                    '<p style="color: red;">Error loading data. Please check if the server is running.</p>';
+            }
+        }
+        
+        // Update statistics
+        function updateStats() {
+            const totalRevenue = salesData.reduce((sum, item) => sum + item.revenue, 0);
+            const totalUnits = salesData.reduce((sum, item) => sum + item.units, 0);
+            const totalProfit = salesData.reduce((sum, item) => sum + item.profit, 0);
+            const avgROI = salesData.length > 0 
+                ? salesData.reduce((sum, item) => sum + item.roi, 0) / salesData.length 
+                : 0;
+            
+            document.getElementById('totalRevenue').textContent = formatCurrency(totalRevenue);
+            document.getElementById('totalUnits').textContent = totalUnits.toLocaleString();
+            document.getElementById('totalProfit').textContent = formatCurrency(totalProfit);
+            document.getElementById('avgROI').textContent = avgROI.toFixed(1) + '%';
+        }
+        
+        // Render table
+        function renderTable() {
+            const tbody = document.getElementById('salesTableBody');
+            const filteredData = filterData();
+            
+            tbody.innerHTML = filteredData.map(item => {
+                // Handle image URL
+                const imageSrc = item.image_url.startsWith('/product-images/')
+                    ? `http://localhost:8086${item.image_url}`
+                    : item.image_url;
+                
+                // ROI class
+                const roiClass = item.roi > 50 ? 'high' : item.roi > 20 ? 'medium' : 'low';
+                
+                // ACOS class
+                const acosClass = item.acos < 20 ? 'high' : item.acos < 30 ? 'medium' : 'low';
+                
+                return `
+                    <tr>
+                        <td>
+                            <div class="product-cell">
+                                <img src="${imageSrc}" alt="${item.title}" class="product-image" 
+                                     onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect fill=%22%23f0f0f0%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%22 y=%2250%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22 font-size=%2212%22%3ENo Image%3C/text%3E%3C/svg%3E'">
+                                <div class="product-info">
+                                    <div class="product-name" title="${item.title}">${item.title}</div>
+                                    <div class="product-meta">
+                                        <span class="sku-badge">SKU: ${item.sku}</span>
+                                        <a href="https://www.amazon.com/dp/${item.asin}" target="_blank" class="asin-link">
+                                            ASIN: ${item.asin}
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="order-type ${item.orderType.toLowerCase()}">${item.orderType}</span>
+                        </td>
+                        <td>
+                            <div class="metric-value">${item.units}</div>
+                            <span class="metric-label">units sold</span>
+                        </td>
+                        <td>
+                            <span class="health-badge ${item.healthStatus}">
+                                ${item.healthStatus === 'good' ? '✅' : item.healthStatus === 'warning' ? '⚠️' : '❌'}
+                                ${item.healthStatus}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="metric-value">${formatCurrency(item.revenue)}</div>
+                            <span class="metric-label">revenue</span>
+                        </td>
+                        <td>
+                            <div class="metric-value">${formatCurrency(item.profit)}</div>
+                            <span class="metric-label">profit</span>
+                        </td>
+                        <td>
+                            <span class="roi-badge ${roiClass}">${item.roi.toFixed(1)}%</span>
+                        </td>
+                        <td>
+                            <span class="roi-badge ${acosClass}">${item.acos.toFixed(1)}%</span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // Filter data
+        function filterData() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const marketplace = document.getElementById('marketplace').value;
+            const orderType = document.getElementById('orderType').value;
+            
+            let filtered = salesData.filter(item => {
+                const matchSearch = !search || 
+                    item.title.toLowerCase().includes(search) ||
+                    item.asin.toLowerCase().includes(search) ||
+                    item.sku.toLowerCase().includes(search);
+                
+                const matchMarketplace = !marketplace || item.marketplace === marketplace;
+                const matchOrderType = !orderType || item.orderType === orderType;
+                
+                return matchSearch && matchMarketplace && matchOrderType;
+            });
+            
+            // Apply sorting
+            filtered.sort((a, b) => {
+                const aVal = a[currentSort.field];
+                const bVal = b[currentSort.field];
+                
+                if (currentSort.direction === 'asc') {
+                    return aVal > bVal ? 1 : -1;
+                } else {
+                    return aVal < bVal ? 1 : -1;
+                }
+            });
+            
+            return filtered;
+        }
+        
+        // Sort table
+        function sortTable(field) {
+            if (currentSort.field === field) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.field = field;
+                currentSort.direction = 'desc';
+            }
+            renderTable();
+        }
+        
+        // Setup event listeners
+        function setupEventListeners() {
+            document.getElementById('searchInput').addEventListener('input', renderTable);
+            document.getElementById('marketplace').addEventListener('change', renderTable);
+            document.getElementById('orderType').addEventListener('change', renderTable);
+            document.getElementById('dateRange').addEventListener('change', (e) => {
+                if (e.target.value !== 'custom') {
+                    loadSalesData();
+                }
+            });
+        }
+        
+        // Export to CSV
+        function exportToCSV() {
+            const headers = ['Product', 'ASIN', 'SKU', 'Units', 'Revenue', 'Profit', 'ROI', 'ACOS'];
+            const rows = filterData().map(item => [
+                item.title,
+                item.asin,
+                item.sku,
+                item.units,
+                item.revenue.toFixed(2),
+                item.profit.toFixed(2),
+                item.roi.toFixed(1) + '%',
+                item.acos.toFixed(1) + '%'
+            ]);
+            
+            let csv = headers.join(',') + '\n';
+            rows.forEach(row => {
+                csv += row.map(field => `"${field}"`).join(',') + '\n';
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `sales_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+        }
+        
+        // Refresh data
+        function refreshData() {
+            document.getElementById('loadingTable').style.display = 'block';
+            document.getElementById('salesTable').style.display = 'none';
+            loadSalesData();
+        }
+        
+        // Toggle columns (placeholder)
+        function toggleColumns() {
+            alert('Column settings - Feature coming soon!');
+        }
+        
+        // Format currency
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(value);
+        }
+    </script>
+</body>
+</html>

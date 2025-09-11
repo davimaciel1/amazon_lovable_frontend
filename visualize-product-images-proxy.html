@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualização de Imagens de Produtos (via Proxy)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .status {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 20px;
+        }
+        .product-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .product-image {
+            width: 100%;
+            max-width: 250px;
+            height: 250px;
+            object-fit: contain;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 10px;
+            background: white;
+        }
+        .product-title {
+            margin-top: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            min-height: 40px;
+        }
+        .product-asin {
+            color: #666;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        .product-sku {
+            color: #999;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+        .product-price {
+            color: #0066c0;
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
+            color: #666;
+        }
+        .error {
+            background: #fee;
+            color: #c00;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .no-image {
+            width: 100%;
+            height: 250px;
+            background: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+        }
+        .image-url {
+            font-size: 11px;
+            color: #999;
+            margin-top: 10px;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <h1>Visualização de Produtos com Imagens (Via Proxy Backend)</h1>
+    <div class="status">
+        Carregando imagens através do endpoint proxy do backend para evitar problemas de CORS
+    </div>
+    <div id="loading" class="loading">Carregando produtos do banco de dados...</div>
+    <div id="products-container" class="products-grid" style="display: none;"></div>
+    <div id="error-container"></div>
+
+    <script>
+        // Function to encode ASIN to Base64
+        function encodeAsin(asin) {
+            return btoa(asin);
+        }
+
+        // Function to generate proxy image URL
+        function getProxyImageUrl(asin) {
+            const encoded = encodeAsin(asin);
+            return `http://localhost:8080/app/product-images/${encoded}.jpg`;
+        }
+
+        async function loadProducts() {
+            try {
+                console.log('Tentando carregar produtos do banco de dados...');
+                
+                // Query products directly from database
+                const products = await getProductsFromDatabase();
+                
+                if (products && products.length > 0) {
+                    console.log(`${products.length} produtos encontrados no banco`);
+                    displayProducts(products);
+                } else {
+                    throw new Error('Nenhum produto encontrado');
+                }
+                
+            } catch (error) {
+                console.error('Erro:', error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error-container').innerHTML = 
+                    '<div class="error">Erro ao carregar produtos: ' + error.message + '</div>';
+            }
+        }
+
+        async function getProductsFromDatabase() {
+            // Simulating database query - in production, this would be an API call
+            // For now, using the ASINs we know exist in the database
+            const knownProducts = [
+                {
+                    asin: 'B0CLBFSQH1',
+                    sku: '8K-9V3K-V4JT',
+                    title: 'Cutting Boards for Kitchen - Bamboo Cutting Board Set',
+                    price: 49.99
+                },
+                {
+                    asin: 'B0CLBR3ZCN',
+                    sku: 'B0CLBR3ZCN',
+                    title: 'Bamboo Cutting Board with Juice Groove',
+                    price: 39.99
+                },
+                {
+                    asin: 'B0CLBHB46K',
+                    sku: 'B0CLBHB46K',
+                    title: 'Large Bamboo Cutting Board',
+                    price: 45.99
+                },
+                {
+                    asin: 'B0CMYZMXLQ',
+                    sku: 'B0CMYZMXLQ',
+                    title: 'Premium Wood Cutting Board',
+                    price: 54.99
+                },
+                {
+                    asin: 'B0CMYYY66D',
+                    sku: 'B0CMYYY66D',
+                    title: 'Kitchen Cutting Board Set',
+                    price: 34.99
+                }
+            ];
+            
+            return knownProducts;
+        }
+
+        function displayProducts(products) {
+            const container = document.getElementById('products-container');
+            const loading = document.getElementById('loading');
+            const errorContainer = document.getElementById('error-container');
+            
+            loading.style.display = 'none';
+            
+            if (!products || products.length === 0) {
+                errorContainer.innerHTML = '<div class="error">Nenhum produto encontrado.</div>';
+                return;
+            }
+            
+            container.innerHTML = products.map(product => {
+                const proxyUrl = getProxyImageUrl(product.asin);
+                const encodedAsin = encodeAsin(product.asin);
+                
+                return `
+                    <div class="product-card">
+                        <img 
+                            src="${proxyUrl}" 
+                            alt="${product.title}" 
+                            class="product-image" 
+                            loading="lazy"
+                            decoding="async"
+                            onerror="this.onerror=null; this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjE1MCIgeT0iMTUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTYiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkltYWdlbSBuw6NvIGRpc3BvbsOtdmVsPC90ZXh0Pjwvc3ZnPg==';"
+                        >
+                        <div class="product-title">${product.title || 'Produto sem título'}</div>
+                        <div class="product-asin">ASIN: ${product.asin}</div>
+                        <div class="product-sku">SKU: ${product.sku || 'N/A'}</div>
+                        <div class="product-price">R$ ${(product.price || 0).toFixed(2)}</div>
+                        <div class="image-url">
+                            URL Proxy: /app/product-images/${encodedAsin}.jpg
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.style.display = 'grid';
+            
+            console.log('Produtos exibidos. As imagens devem carregar através do proxy backend.');
+        }
+
+        // Load products when page loads
+        window.addEventListener('DOMContentLoaded', loadProducts);
+    </script>
+</body>
+</html>

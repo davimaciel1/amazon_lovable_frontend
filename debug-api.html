@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug API Configuration</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        button { margin: 10px; padding: 10px; }
+        pre { background: #f0f0f0; padding: 10px; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Debug API Configuration</h1>
+    
+    <div>
+        <h2>Actions:</h2>
+        <button onclick="checkLocalStorage()">Check localStorage</button>
+        <button onclick="clearCache()">Clear All Cache</button>
+        <button onclick="testDirectAPI()">Test Direct API (8080)</button>
+        <button onclick="testProxyAPI()">Test Proxy API (8084)</button>
+        <button onclick="fixConfiguration()">Fix Configuration</button>
+    </div>
+    
+    <div id="output"></div>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(message, isError = false) {
+            const div = document.createElement('div');
+            div.className = isError ? 'error' : 'success';
+            div.textContent = new Date().toISOString() + ': ' + message;
+            output.appendChild(div);
+        }
+        
+        function checkLocalStorage() {
+            log('=== localStorage Contents ===');
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+                log(`${key}: ${value}`);
+            }
+            
+            // Check sessionStorage too
+            log('=== sessionStorage Contents ===');
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                const value = sessionStorage.getItem(key);
+                log(`${key}: ${value}`);
+            }
+        }
+        
+        function clearCache() {
+            localStorage.clear();
+            sessionStorage.clear();
+            log('✅ Cleared all localStorage and sessionStorage');
+            
+            // Clear cookies
+            document.cookie.split(";").forEach(function(c) { 
+                document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+            });
+            log('✅ Cleared all cookies');
+        }
+        
+        async function testDirectAPI() {
+            try {
+                const response = await fetch('http://localhost:8080/health');
+                const data = await response.json();
+                log('✅ Direct API (8080) is working: ' + JSON.stringify(data));
+            } catch (error) {
+                log('❌ Direct API (8080) failed: ' + error.message, true);
+            }
+        }
+        
+        async function testProxyAPI() {
+            try {
+                // Test relative path through proxy
+                const response = await fetch('/api/status', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                log('✅ Proxy API (/api) is working: ' + JSON.stringify(data));
+            } catch (error) {
+                log('❌ Proxy API (/api) failed: ' + error.message, true);
+            }
+        }
+        
+        function fixConfiguration() {
+            // Clear any cached API URLs
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.includes('api') || key.includes('url') || key.includes('endpoint'))) {
+                    keysToRemove.push(key);
+                }
+            }
+            
+            keysToRemove.forEach(key => {
+                localStorage.removeItem(key);
+                log(`Removed localStorage key: ${key}`);
+            });
+            
+            // Set correct configuration
+            localStorage.setItem('VITE_API_URL', '/api');
+            localStorage.setItem('VITE_API_BASE', '/api');
+            log('✅ Set correct API configuration');
+            
+            log('⚠️ Please refresh the page for changes to take effect');
+        }
+        
+        // Run checks on load
+        window.onload = () => {
+            log('Page loaded at ' + window.location.href);
+            checkLocalStorage();
+        };
+    </script>
+</body>
+</html>

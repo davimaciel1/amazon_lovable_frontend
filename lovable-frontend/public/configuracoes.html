@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurações - Amazon Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .dashboard-layout {
+            display: flex;
+            height: 100vh;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: white;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        .logo {
+            padding: 25px;
+            border-bottom: 1px solid #e5e7eb;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .logo h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .nav-menu {
+            padding: 20px 0;
+            flex: 1;
+        }
+        
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 14px 25px;
+            color: #64748b;
+            text-decoration: none;
+            transition: all 0.3s;
+            gap: 12px;
+            font-weight: 500;
+            position: relative;
+        }
+        
+        .nav-item:hover {
+            background: #f8fafc;
+            color: #667eea;
+        }
+        
+        .nav-item.active {
+            background: linear-gradient(90deg, rgba(102,126,234,0.1) 0%, rgba(118,75,162,0.1) 100%);
+            color: #667eea;
+        }
+        
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            background: #f8fafc;
+            overflow-y: auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 25px 30px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .header h2 {
+            margin: 0;
+            color: #1e293b;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .header p {
+            margin: 5px 0 0;
+            color: #64748b;
+            font-size: 14px;
+        }
+        
+        .content {
+            padding: 0 30px 30px;
+        }
+        
+        /* Settings Tabs */
+        .tabs-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .tabs-header {
+            display: flex;
+            background: linear-gradient(90deg, rgba(102,126,234,0.05) 0%, rgba(118,75,162,0.05) 100%);
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .tab-button {
+            padding: 15px 25px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #64748b;
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .tab-button:hover {
+            background: white;
+            color: #667eea;
+        }
+        
+        .tab-button.active {
+            background: white;
+            color: #667eea;
+        }
+        
+        .tab-button.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        /* Tab Content */
+        .tab-content {
+            display: none;
+            padding: 30px;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Settings Sections */
+        .settings-section {
+            margin-bottom: 30px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .settings-group {
+            margin-bottom: 20px;
+        }
+        
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-radius: 8px;
+            transition: background 0.3s;
+        }
+        
+        .setting-row:hover {
+            background: linear-gradient(90deg, rgba(102,126,234,0.03) 0%, rgba(118,75,162,0.03) 100%);
+        }
+        
+        .setting-info {
+            flex: 1;
+        }
+        
+        .setting-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .setting-description {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        
+        .setting-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* Form Controls */
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        input[type="number"],
+        input[type="time"],
+        select {
+            padding: 8px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            width: 200px;
+            transition: all 0.3s;
+        }
+        
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+        
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 24px;
+            background: #e5e7eb;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .toggle-switch.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+        
+        .toggle-switch.active .toggle-slider {
+            transform: translateX(26px);
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 2px 4px rgba(102,126,234,0.2);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102,126,234,0.3);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            box-shadow: 0 2px 4px rgba(16,185,129,0.2);
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(16,185,129,0.3);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            box-shadow: 0 2px 4px rgba(239,68,68,0.2);
+        }
+        
+        .btn-danger:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(239,68,68,0.3);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        /* Alert Messages */
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        /* Connection Status */
+        .connection-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .connection-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .connection-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .connection-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .connection-status {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .connection-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            font-size: 13px;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>📦 Amazon Monitor</h1>
+            </div>
+            <nav class="nav-menu">
+                <a href="dashboard.html" class="nav-item">
+                    <span>📊</span> Dashboard
+                </a>
+                <a href="sales-dashboard-complete.html" class="nav-item">
+                    <span>💰</span> Vendas
+                </a>
+                <a href="produtos.html" class="nav-item">
+                    <span>📦</span> Produtos
+                </a>
+                <a href="relatorios.html" class="nav-item">
+                    <span>📈</span> Relatórios
+                </a>
+                <a href="configuracoes.html" class="nav-item active">
+                    <span>⚙️</span> Configurações
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="header">
+                <h2>Configurações</h2>
+                <p>Gerencie as configurações do sistema e integrações</p>
+            </div>
+            
+            <div class="content">
+
+        <!-- Settings Tabs -->
+        <div class="tabs-container">
+            <div class="tabs-header">
+                <button class="tab-button active" onclick="switchTab('general')">Geral</button>
+                <button class="tab-button" onclick="switchTab('integrations')">Integrações</button>
+                <button class="tab-button" onclick="switchTab('notifications')">Notificações</button>
+                <button class="tab-button" onclick="switchTab('database')">Banco de Dados</button>
+                <button class="tab-button" onclick="switchTab('security')">Segurança</button>
+            </div>
+
+            <!-- General Tab -->
+            <div id="general-tab" class="tab-content active">
+                <div class="settings-section">
+                    <h3 class="section-title">Configurações Gerais</h3>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Nome da Empresa</div>
+                            <div class="setting-description">Nome exibido no sistema</div>
+                        </div>
+                        <div class="setting-control">
+                            <input type="text" id="companyName" value="Minha Empresa">
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Idioma</div>
+                            <div class="setting-description">Idioma padrão do sistema</div>
+                        </div>
+                        <div class="setting-control">
+                            <select id="language">
+                                <option value="pt-BR" selected>Português (Brasil)</option>
+                                <option value="en-US">English (US)</option>
+                                <option value="es-ES">Español</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Fuso Horário</div>
+                            <div class="setting-description">Fuso horário para relatórios</div>
+                        </div>
+                        <div class="setting-control">
+                            <select id="timezone">
+                                <option value="America/Sao_Paulo" selected>Brasília (GMT-3)</option>
+                                <option value="America/New_York">New York (GMT-5)</option>
+                                <option value="UTC">UTC</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Moeda</div>
+                            <div class="setting-description">Moeda padrão para exibição</div>
+                        </div>
+                        <div class="setting-control">
+                            <select id="currency">
+                                <option value="BRL" selected>Real (R$)</option>
+                                <option value="USD">Dollar ($)</option>
+                                <option value="EUR">Euro (€)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3 class="section-title">Preferências de Exibição</h3>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Modo Escuro</div>
+                            <div class="setting-description">Ativar tema escuro no sistema</div>
+                        </div>
+                        <div class="setting-control">
+                            <div class="toggle-switch" onclick="toggleSwitch(this)">
+                                <div class="toggle-slider"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Mostrar Gráficos Animados</div>
+                            <div class="setting-description">Ativar animações nos gráficos</div>
+                        </div>
+                        <div class="setting-control">
+                            <div class="toggle-switch active" onclick="toggleSwitch(this)">
+                                <div class="toggle-slider"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="saveGeneralSettings()">Salvar Alterações</button>
+                    <button class="btn" onclick="resetGeneralSettings()">Restaurar Padrões</button>
+                </div>
+            </div>
+
+            <!-- Integrations Tab -->
+            <div id="integrations-tab" class="tab-content">
+                <div class="settings-section">
+                    <h3 class="section-title">Conexões Amazon</h3>
+                    
+                    <div class="connection-card">
+                        <div class="connection-header">
+                            <div class="connection-name">Amazon Seller Central - BR</div>
+                            <span class="connection-status status-connected">Conectado</span>
+                        </div>
+                        <div class="connection-details">
+                            <div>Seller ID: A2Q3Y263D00KWC</div>
+                            <div>Última sincronização: Há 15 minutos</div>
+                            <div>Produtos: 1,245</div>
+                            <div>Pedidos: 8,432</div>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-primary" onclick="syncNow()">Sincronizar Agora</button>
+                            <button class="btn" onclick="configureConnection()">Configurar</button>
+                            <button class="btn btn-danger" onclick="disconnectAccount()">Desconectar</button>
+                        </div>
+                    </div>
+                    
+                    <div class="connection-card">
+                        <div class="connection-header">
+                            <div class="connection-name">Amazon Seller Central - US</div>
+                            <span class="connection-status status-disconnected">Desconectado</span>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-success" onclick="connectNewAccount()">Conectar Conta</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3 class="section-title">Configurações de API</h3>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Intervalo de Sincronização</div>
+                            <div class="setting-description">Frequência de atualização dos dados</div>
+                        </div>
+                        <div class="setting-control">
+                            <select id="syncInterval">
+                                <option value="15">15 minutos</option>
+                                <option value="30" selected>30 minutos</option>
+                                <option value="60">1 hora</option>
+                                <option value="360">6 horas</option>
+                                <option value="1440">24 horas</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Sincronização Automática</div>
+                            <div class="setting-description">Atualizar dados automaticamente</div>
+                        </div>
+                        <div class="setting-control">
+                            <div class="toggle-switch active" onclick="toggleSwitch(this)">
+                                <div class="toggle-slider"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notifications Tab -->
+            <div id="notifications-tab" class="tab-content">
+                <div class="settings-section">
+                    <h3 class="section-title">Notificações por Email</h3>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Email Principal</div>
+                            <div class="setting-description">Email para receber notificações</div>
+                        </div>
+                        <div class="setting-control">
+                            <input type="email" id="mainEmail" value="admin@minhaempresa.com">
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Relatórios Diários</div>
+                            <div class="setting-description">Receber resumo diário de vendas</div>
+                        </div>
+                        <div class="setting-control">
+                            <div class="toggle-switch active" onclick="toggleSwitch(this)">
+                                <div class="toggle-slider"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Alertas de Estoque Baixo</div>
+                            <div class="setting-description">Notificar quando estoque < 10 unidades</div>
+                        </div>
+                        <div class="setting-control">
+                            <div class="toggle-switch active" onclick="toggleSwitch(this)">
+                                <div class="toggle-slider"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Novos Pedidos</div>
+                            <div class="setting-description">Notificar sobre novos pedidos</div>
+                        </div>
+                        <div class="setting-control">
+                            <div class="toggle-switch" onclick="toggleSwitch(this)">
+                                <div class="toggle-slider"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3 class="section-title">Preferências de Notificação</h3>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Horário de Envio</div>
+                            <div class="setting-description">Horário preferido para relatórios</div>
+                        </div>
+                        <div class="setting-control">
+                            <input type="time" value="08:00">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Database Tab -->
+            <div id="database-tab" class="tab-content">
+                <div class="alert alert-info">
+                    <strong>Status da Conexão:</strong> Conectado ao banco de dados PostgreSQL
+                </div>
+                
+                <div class="settings-section">
+                    <h3 class="section-title">Informações do Banco</h3>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Host</div>
+                            <div class="setting-description">Endereço do servidor</div>
+                        </div>
+                        <div class="setting-control">
+                            <input type="text" value="49.12.191.119" readonly>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Porta</div>
+                            <div class="setting-description">Porta de conexão</div>
+                        </div>
+                        <div class="setting-control">
+                            <input type="number" value="5456" readonly>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Banco de Dados</div>
+                            <div class="setting-description">Nome do banco</div>
+                        </div>
+                        <div class="setting-control">
+                            <input type="text" value="amazon_monitor" readonly>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3 class="section-title">Manutenção</h3>
+                    
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="backupDatabase()">Fazer Backup</button>
+                        <button class="btn" onclick="optimizeDatabase()">Otimizar Banco</button>
+                        <button class="btn btn-danger" onclick="clearCache()">Limpar Cache</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Tab -->
+            <div id="security-tab" class="tab-content">
+                <div class="settings-section">
+                    <h3 class="section-title">Segurança da Conta</h3>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Autenticação de Dois Fatores</div>
+                            <div class="setting-description">Adicionar camada extra de segurança</div>
+                        </div>
+                        <div class="setting-control">
+                            <div class="toggle-switch" onclick="toggleSwitch(this)">
+                                <div class="toggle-slider"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Sessão Expirar Em</div>
+                            <div class="setting-description">Tempo de inatividade antes de desconectar</div>
+                        </div>
+                        <div class="setting-control">
+                            <select id="sessionTimeout">
+                                <option value="30">30 minutos</option>
+                                <option value="60" selected>1 hora</option>
+                                <option value="240">4 horas</option>
+                                <option value="480">8 horas</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3 class="section-title">Alterar Senha</h3>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Senha Atual</div>
+                        </div>
+                        <div class="setting-control">
+                            <input type="password" id="currentPassword">
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Nova Senha</div>
+                        </div>
+                        <div class="setting-control">
+                            <input type="password" id="newPassword">
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <div class="setting-label">Confirmar Nova Senha</div>
+                        </div>
+                        <div class="setting-control">
+                            <input type="password" id="confirmPassword">
+                        </div>
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="changePassword()">Alterar Senha</button>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+
+        function toggleSwitch(element) {
+            element.classList.toggle('active');
+        }
+
+        function saveGeneralSettings() {
+            const settings = {
+                companyName: document.getElementById('companyName').value,
+                language: document.getElementById('language').value,
+                timezone: document.getElementById('timezone').value,
+                currency: document.getElementById('currency').value
+            };
+            
+            console.log('Saving settings:', settings);
+            alert('Configurações salvas com sucesso!');
+        }
+
+        function resetGeneralSettings() {
+            if (confirm('Tem certeza que deseja restaurar as configurações padrão?')) {
+                document.getElementById('companyName').value = 'Minha Empresa';
+                document.getElementById('language').value = 'pt-BR';
+                document.getElementById('timezone').value = 'America/Sao_Paulo';
+                document.getElementById('currency').value = 'BRL';
+                alert('Configurações restauradas!');
+            }
+        }
+
+        function syncNow() {
+            alert('Iniciando sincronização com Amazon...');
+        }
+
+        function configureConnection() {
+            alert('Abrindo configurações de conexão...');
+        }
+
+        function disconnectAccount() {
+            if (confirm('Tem certeza que deseja desconectar esta conta?')) {
+                alert('Conta desconectada!');
+            }
+        }
+
+        function connectNewAccount() {
+            alert('Redirecionando para autorização Amazon...');
+        }
+
+        function backupDatabase() {
+            if (confirm('Deseja fazer backup do banco de dados?')) {
+                alert('Backup iniciado! Você receberá um email quando concluído.');
+            }
+        }
+
+        function optimizeDatabase() {
+            if (confirm('Deseja otimizar o banco de dados? Isso pode levar alguns minutos.')) {
+                alert('Otimização iniciada!');
+            }
+        }
+
+        function clearCache() {
+            if (confirm('Tem certeza que deseja limpar o cache? Isso pode tornar o sistema temporariamente mais lento.')) {
+                alert('Cache limpo com sucesso!');
+            }
+        }
+
+        function changePassword() {
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (!currentPassword || !newPassword || !confirmPassword) {
+                alert('Por favor, preencha todos os campos!');
+                return;
+            }
+            
+            if (newPassword !== confirmPassword) {
+                alert('As senhas não coincidem!');
+                return;
+            }
+            
+            if (newPassword.length < 8) {
+                alert('A nova senha deve ter pelo menos 8 caracteres!');
+                return;
+            }
+            
+            alert('Senha alterada com sucesso!');
+            document.getElementById('currentPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+        }
+    </script>
+</body>
+</html>

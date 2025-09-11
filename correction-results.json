@@ -1,0 +1,23 @@
+{
+  "timestamp": "2025-08-28T02:14:12.354Z",
+  "database": "amazon_monitor",
+  "corrections": {
+    "applied": [
+      "cost column",
+      "Frontend: SalesTable.tsx",
+      "Index: idx_orders_purchase_date",
+      "Index: idx_orders_amazon_order_id",
+      "Index: idx_products_asin",
+      "Index: idx_order_items_asin",
+      "Index: idx_order_items_amazon_order_id",
+      "API endpoint tests"
+    ],
+    "failed": [
+      "sales_metrics view: column \"spend\" does not exist"
+    ],
+    "skipped": [
+      "Frontend: api-adapter.ts"
+    ]
+  },
+  "successRate": "80%"
+}

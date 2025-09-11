@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Amazon Sales Dashboard - Real Data Summary</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .status-bar {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .status { 
+            padding: 6px 12px; 
+            border-radius: 20px; 
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .status.online { background: #4ade80; color: white; }
+        .status.success { background: #22c55e; color: white; }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+        }
+        .stat-label {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 5px;
+        }
+        .stat-value.currency::before { content: "$"; }
+        .stat-change {
+            font-size: 14px;
+            color: #22c55e;
+        }
+        
+        .data-section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .icon {
+            width: 24px;
+            height: 24px;
+            display: inline-block;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            background: #f3f4f6;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #4b5563;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+            color: #1f2937;
+        }
+        tr:hover {
+            background: #f9fafb;
+        }
+        .number {
+            text-align: right;
+            font-family: 'Courier New', monospace;
+        }
+        .currency { color: #059669; font-weight: 600; }
+        
+        .query-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .query-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        .query-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .btn {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn:hover {
+            background: #5a67d8;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+        .error {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .updating {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Amazon Sales Dashboard</h1>
+        
+        <div class="status-bar">
+            <div>
+                <strong>System Status:</strong>
+                <span id="backend-status" class="status online">Backend Online</span>
+                <span id="db-status" class="status success">Database Connected</span>
+            </div>
+            <div>
+                <span id="last-update">Last Update: Just now</span>
+            </div>
+        </div>
+        
+        <!-- Key Metrics -->
+        <div class="grid" id="metrics-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Revenue</div>
+                <div class="stat-value currency" id="total-revenue">0</div>
+                <div class="stat-change">Real-time data</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Orders</div>
+                <div class="stat-value" id="total-orders">0</div>
+                <div class="stat-change">From database</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Units Sold</div>
+                <div class="stat-value" id="total-units">0</div>
+                <div class="stat-change">Actual sales</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Unique Products</div>
+                <div class="stat-value" id="unique-products">0</div>
+                <div class="stat-change">In inventory</div>
+            </div>
+        </div>
+        
+        <!-- AI Query Section -->
+        <div class="data-section">
+            <div class="section-title">
+                🤖 AI-Powered Query Generator
+            </div>
+            <div class="query-box">
+                <input type="text" id="query-input" class="query-input" 
+                       placeholder="Ask about your sales data (e.g., 'show top selling products')" 
+                       value="show top selling products">
+                <button class="btn" onclick="runAIQuery()">Run Query</button>
+            </div>
+            <div id="ai-results"></div>
+        </div>
+        
+        <!-- Top Products -->
+        <div class="data-section">
+            <div class="section-title">
+                📊 Top Selling Products (Real Data)
+            </div>
+            <div id="products-table">
+                <div class="loading">Loading products...</div>
+            </div>
+        </div>
+        
+        <!-- Recent Sales -->
+        <div class="data-section">
+            <div class="section-title">
+                💰 Sales Performance
+            </div>
+            <div id="sales-table">
+                <div class="loading">Loading sales data...</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = 'http://localhost:8080';
+        
+        // Load dashboard stats
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_BASE}/api/dashboard/stats`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('total-revenue').textContent = 
+                        parseFloat(data.data.totalRevenue || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    document.getElementById('total-orders').textContent = data.data.totalOrders;
+                    document.getElementById('total-units').textContent = data.data.totalUnits;
+                    document.getElementById('unique-products').textContent = data.data.uniqueProducts;
+                }
+            } catch (error) {
+                console.error('Stats error:', error);
+            }
+        }
+        
+        // Load top products
+        async function loadTopProducts() {
+            try {
+                const response = await fetch(`${API_BASE}/api/ai-query/execute`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sql: `SELECT 
+                            oi.seller_sku AS "SKU",
+                            oi.title AS "Product",
+                            COUNT(*) AS "Orders",
+                            SUM(oi.quantity_ordered) AS "Units",
+                            SUM(p."currentPrice" * oi.quantity_ordered) AS "Revenue",
+                            AVG(p."currentPrice") AS "Price"
+                        FROM order_items oi
+                        INNER JOIN "Product" p ON oi.asin = p.asin
+                        GROUP BY oi.seller_sku, oi.title
+                        ORDER BY "Revenue" DESC
+                        LIMIT 5`
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.data && result.data.length > 0) {
+                    let html = '<table>';
+                    html += '<tr><th>SKU</th><th>Product</th><th>Orders</th><th>Units</th><th>Revenue</th><th>Avg Price</th></tr>';
+                    
+                    result.data.forEach(row => {
+                        const productName = row.Product.length > 60 ? 
+                            row.Product.substring(0, 60) + '...' : row.Product;
+                        html += '<tr>';
+                        html += `<td>${row.SKU}</td>`;
+                        html += `<td>${productName}</td>`;
+                        html += `<td class="number">${row.Orders}</td>`;
+                        html += `<td class="number">${row.Units}</td>`;
+                        html += `<td class="number currency">$${parseFloat(row.Revenue).toFixed(2)}</td>`;
+                        html += `<td class="number">$${parseFloat(row.Price).toFixed(2)}</td>`;
+                        html += '</tr>';
+                    });
+                    html += '</table>';
+                    document.getElementById('products-table').innerHTML = html;
+                }
+            } catch (error) {
+                document.getElementById('products-table').innerHTML = 
+                    '<div class="error">Error loading products: ' + error.message + '</div>';
+            }
+        }
+        
+        // Load sales data
+        async function loadSales() {
+            try {
+                const response = await fetch(`${API_BASE}/api/sales?page=1&limit=5`);
+                const data = await response.json();
+                
+                if (data.success && data.data.length > 0) {
+                    let html = '<table>';
+                    html += '<tr><th>SKU</th><th>Product</th><th>Units</th><th>Revenue</th><th>Avg Price</th></tr>';
+                    
+                    data.data.forEach(row => {
+                        const productName = row.product.length > 60 ? 
+                            row.product.substring(0, 60) + '...' : row.product;
+                        html += '<tr>';
+                        html += `<td>${row.sku}</td>`;
+                        html += `<td>${productName}</td>`;
+                        html += `<td class="number">${row.units}</td>`;
+                        html += `<td class="number currency">$${parseFloat(row.revenue).toFixed(2)}</td>`;
+                        html += `<td class="number">$${parseFloat(row.price).toFixed(2)}</td>`;
+                        html += '</tr>';
+                    });
+                    html += '</table>';
+                    html += `<div style="margin-top: 10px; text-align: right; color: #6b7280;">
+                        Showing ${data.data.length} of ${data.pagination.total} products
+                    </div>`;
+                    document.getElementById('sales-table').innerHTML = html;
+                }
+            } catch (error) {
+                document.getElementById('sales-table').innerHTML = 
+                    '<div class="error">Error loading sales: ' + error.message + '</div>';
+            }
+        }
+        
+        // Run AI Query
+        async function runAIQuery() {
+            const query = document.getElementById('query-input').value;
+            const resultsDiv = document.getElementById('ai-results');
+            resultsDiv.innerHTML = '<div class="loading">Generating and executing query...</div>';
+            
+            try {
+                // Generate SQL
+                const genResponse = await fetch(`${API_BASE}/api/ai-query/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+                const genData = await genResponse.json();
+                
+                // Execute SQL
+                const execResponse = await fetch(`${API_BASE}/api/ai-query/execute`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sql: genData.sql })
+                });
+                const execData = await execResponse.json();
+                
+                // Display results
+                let html = '<div style="margin-bottom: 10px;"><strong>Generated SQL:</strong></div>';
+                html += `<pre style="background: #f3f4f6; padding: 10px; border-radius: 8px; overflow-x: auto;">${genData.sql}</pre>`;
+                html += `<div style="margin: 15px 0;"><strong>Results (${execData.rowCount || 0} rows):</strong></div>`;
+                
+                if (execData.data && execData.data.length > 0) {
+                    html += '<table>';
+                    html += '<tr>';
+                    Object.keys(execData.data[0]).forEach(key => {
+                        html += `<th>${key}</th>`;
+                    });
+                    html += '</tr>';
+                    
+                    execData.data.forEach(row => {
+                        html += '<tr>';
+                        Object.values(row).forEach(val => {
+                            if (!isNaN(val) && val !== null && val.toString().includes('.')) {
+                                val = parseFloat(val).toFixed(2);
+                            }
+                            html += `<td>${val}</td>`;
+                        });
+                        html += '</tr>';
+                    });
+                    html += '</table>';
+                } else {
+                    html += '<p>No results found</p>';
+                }
+                
+                resultsDiv.innerHTML = html;
+            } catch (error) {
+                resultsDiv.innerHTML = '<div class="error">Error: ' + error.message + '</div>';
+            }
+        }
+        
+        // Update timestamp
+        function updateTimestamp() {
+            const now = new Date();
+            document.getElementById('last-update').textContent = 
+                `Last Update: ${now.toLocaleTimeString()}`;
+        }
+        
+        // Initialize
+        async function init() {
+            await loadStats();
+            await loadTopProducts();
+            await loadSales();
+            updateTimestamp();
+        }
+        
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            init();
+        }, 30000);
+        
+        // Load on page ready
+        window.onload = init;
+    </script>
+</body>
+</html>

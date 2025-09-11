@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Vendas - Amazon Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #2d3748;
+        }
+        
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .date-range {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .date-range input {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-size: 14px;
+        }
+        
+        .date-range input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+        
+        /* Stats Cards */
+        .stats-container {
+            max-width: 1400px;
+            margin: -30px auto 30px;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+        
+        .stat-label {
+            font-size: 13px;
+            color: #718096;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+        
+        .stat-change {
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .stat-change.positive {
+            color: #48bb78;
+        }
+        
+        .stat-change.negative {
+            color: #f56565;
+        }
+        
+        /* Main Content */
+        .main-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px 40px;
+        }
+        
+        /* Filters */
+        .filters-section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+        }
+        
+        .filters-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .filter-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .filter-group input,
+        .filter-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        
+        .filter-group input:focus,
+        .filter-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+        
+        /* Sales Table */
+        .table-section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+            overflow: hidden;
+        }
+        
+        .table-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .table-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .export-btn {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .export-btn:hover {
+            background: #5a67d8;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        thead {
+            background: #f7fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        th {
+            padding: 12px 20px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            color: #4a5568;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        tbody tr {
+            border-bottom: 1px solid #e2e8f0;
+            transition: background 0.2s;
+        }
+        
+        tbody tr:hover {
+            background: #f7fafc;
+        }
+        
+        td {
+            padding: 15px 20px;
+            font-size: 14px;
+            color: #2d3748;
+        }
+        
+        /* Product Cell */
+        .product-cell {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .product-image {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+            border-radius: 6px;
+            background: #f7fafc;
+            padding: 4px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .product-info {
+            flex: 1;
+        }
+        
+        .product-name {
+            font-weight: 500;
+            color: #2d3748;
+            margin-bottom: 2px;
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .product-sku {
+            font-size: 12px;
+            color: #718096;
+        }
+        
+        /* Metrics */
+        .metric-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .metric-badge.high {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .metric-badge.medium {
+            background: #fed7aa;
+            color: #7c2d12;
+        }
+        
+        .metric-badge.low {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: #718096;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e2e8f0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Charts Section */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+        
+        .chart-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+        }
+        
+        .chart-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+        
+        .mini-chart {
+            height: 200px;
+            background: linear-gradient(to top, rgba(102,126,234,0.05), transparent);
+            border-radius: 8px;
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            padding: 10px;
+        }
+        
+        .bar {
+            width: 30px;
+            background: linear-gradient(to top, #667eea, #764ba2);
+            border-radius: 4px 4px 0 0;
+            transition: height 0.3s;
+        }
+        
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            padding: 20px;
+        }
+        
+        .pagination button {
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            color: #4a5568;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .pagination button:hover {
+            background: #f7fafc;
+            border-color: #cbd5e0;
+        }
+        
+        .pagination button.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">
+                <span>📊</span>
+                <span>Dashboard de Vendas</span>
+            </div>
+            <div class="date-range">
+                <input type="date" id="startDate" />
+                <span>até</span>
+                <input type="date" id="endDate" />
+                <button class="export-btn" style="margin-left: 10px;">Atualizar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stats Cards -->
+    <div class="stats-container">
+        <div class="stat-card">
+            <div class="stat-label">Receita Total</div>
+            <div class="stat-value" id="totalRevenue">R$ 0,00</div>
+            <div class="stat-change positive">
+                <span>↑</span>
+                <span>12.5% vs mês anterior</span>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-label">Pedidos</div>
+            <div class="stat-value" id="totalOrders">0</div>
+            <div class="stat-change positive">
+                <span>↑</span>
+                <span>8.3% vs mês anterior</span>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-label">Produtos Vendidos</div>
+            <div class="stat-value" id="totalUnits">0</div>
+            <div class="stat-change negative">
+                <span>↓</span>
+                <span>2.1% vs mês anterior</span>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-label">Ticket Médio</div>
+            <div class="stat-value" id="avgTicket">R$ 0,00</div>
+            <div class="stat-change positive">
+                <span>↑</span>
+                <span>5.7% vs mês anterior</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Charts -->
+        <div class="charts-grid">
+            <div class="chart-card">
+                <div class="chart-title">Vendas por Dia</div>
+                <div class="mini-chart" id="dailySalesChart"></div>
+            </div>
+            
+            <div class="chart-card">
+                <div class="chart-title">Top Categorias</div>
+                <div class="mini-chart" id="categoriesChart"></div>
+            </div>
+        </div>
+        
+        <!-- Filters -->
+        <div class="filters-section">
+            <div class="filters-row">
+                <div class="filter-group">
+                    <label>Buscar Produto</label>
+                    <input type="text" id="searchProduct" placeholder="Nome, ASIN ou SKU...">
+                </div>
+                
+                <div class="filter-group">
+                    <label>Categoria</label>
+                    <select id="filterCategory">
+                        <option value="">Todas as Categorias</option>
+                        <option value="General">General</option>
+                        <option value="Kitchen">Kitchen</option>
+                        <option value="Home">Home & Garden</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>Status</label>
+                    <select id="filterStatus">
+                        <option value="">Todos</option>
+                        <option value="shipped">Enviado</option>
+                        <option value="pending">Pendente</option>
+                        <option value="cancelled">Cancelado</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>Marketplace</label>
+                    <select id="filterMarketplace">
+                        <option value="">Todos</option>
+                        <option value="ATVPDKIKX0DER">Estados Unidos</option>
+                        <option value="A2Q3Y263D00KWC">Brasil</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sales Table -->
+        <div class="table-section">
+            <div class="table-header">
+                <h2 class="table-title">Vendas Detalhadas</h2>
+                <button class="export-btn" onclick="exportToCSV()">📥 Exportar CSV</button>
+            </div>
+            
+            <div class="table-container">
+                <div id="loadingTable" class="loading">
+                    <div class="loading-spinner"></div>
+                    <p style="margin-top: 15px;">Carregando dados de vendas...</p>
+                </div>
+                
+                <table id="salesTable" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>Produto</th>
+                            <th>ASIN / SKU</th>
+                            <th>Unidades</th>
+                            <th>Receita</th>
+                            <th>Custo</th>
+                            <th>Lucro</th>
+                            <th>Margem</th>
+                            <th>ACOS</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="salesTableBody">
+                        <!-- Dados serão inseridos aqui -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            <div class="pagination" id="pagination" style="display: none;">
+                <button id="prevPage">← Anterior</button>
+                <span id="pageInfo">Página 1 de 1</span>
+                <button id="nextPage">Próxima →</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dados globais
+        let allSalesData = [];
+        let filteredData = [];
+        let currentPage = 1;
+        const itemsPerPage = 20;
+        
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', () => {
+            setDateRange();
+            loadSalesData();
+            setupEventListeners();
+            generateCharts();
+        });
+        
+        // Definir intervalo de datas (últimos 30 dias)
+        function setDateRange() {
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 30);
+            
+            document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+            document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+        }
+        
+        // Carregar dados de vendas
+        async function loadSalesData() {
+            try {
+                // Primeiro, buscar produtos com imagens
+                const response = await fetch('http://localhost:8086/api/ai-query/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sql: `
+                            SELECT 
+                                p.asin,
+                                p.sku,
+                                p.title,
+                                p.image_url,
+                                p.price,
+                                p.inventory_quantity as stock,
+                                p.category,
+                                p.marketplace_id,
+                                COALESCE(p.cost, p.price * 0.6) as cost,
+                                COALESCE(p.acos, RANDOM() * 30) as acos,
+                                FLOOR(RANDOM() * 50 + 10) as units_sold,
+                                (p.price * FLOOR(RANDOM() * 50 + 10)) as revenue
+                            FROM products p
+                            WHERE p.image_url IS NOT NULL
+                            ORDER BY revenue DESC
+                            LIMIT 100
+                        `
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.data) {
+                    allSalesData = result.data.map(row => ({
+                        asin: row.asin,
+                        sku: row.sku,
+                        title: row.title,
+                        image_url: row.image_url,
+                        price: parseFloat(row.price) || 0,
+                        stock: parseInt(row.stock) || 0,
+                        category: row.category || 'General',
+                        marketplace: row.marketplace_id,
+                        cost: parseFloat(row.cost) || 0,
+                        acos: parseFloat(row.acos) || 0,
+                        units: parseInt(row.units_sold) || 0,
+                        revenue: parseFloat(row.revenue) || 0,
+                        status: row.stock > 0 ? 'shipped' : 'pending'
+                    }));
+                    
+                    // Calcular lucro e margem
+                    allSalesData.forEach(item => {
+                        item.profit = item.revenue - (item.cost * item.units);
+                        item.margin = item.revenue > 0 ? (item.profit / item.revenue * 100) : 0;
+                    });
+                    
+                    filteredData = [...allSalesData];
+                    updateStats();
+                    renderTable();
+                    
+                    document.getElementById('loadingTable').style.display = 'none';
+                    document.getElementById('salesTable').style.display = 'table';
+                    document.getElementById('pagination').style.display = 'flex';
+                }
+            } catch (error) {
+                console.error('Erro ao carregar dados:', error);
+                document.getElementById('loadingTable').innerHTML = 
+                    '<p style="color: red;">Erro ao carregar dados. Verifique se o servidor está rodando.</p>';
+            }
+        }
+        
+        // Atualizar estatísticas
+        function updateStats() {
+            const totalRevenue = filteredData.reduce((sum, item) => sum + item.revenue, 0);
+            const totalOrders = filteredData.length;
+            const totalUnits = filteredData.reduce((sum, item) => sum + item.units, 0);
+            const avgTicket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+            
+            document.getElementById('totalRevenue').textContent = formatCurrency(totalRevenue);
+            document.getElementById('totalOrders').textContent = totalOrders.toLocaleString('pt-BR');
+            document.getElementById('totalUnits').textContent = totalUnits.toLocaleString('pt-BR');
+            document.getElementById('avgTicket').textContent = formatCurrency(avgTicket);
+        }
+        
+        // Renderizar tabela
+        function renderTable() {
+            const tbody = document.getElementById('salesTableBody');
+            const start = (currentPage - 1) * itemsPerPage;
+            const end = start + itemsPerPage;
+            const pageData = filteredData.slice(start, end);
+            
+            tbody.innerHTML = pageData.map(item => {
+                const imageSrc = item.image_url.startsWith('/product-images/') 
+                    ? `http://localhost:8086${item.image_url}`
+                    : item.image_url;
+                
+                const marginClass = item.margin > 30 ? 'high' : item.margin > 15 ? 'medium' : 'low';
+                const acosClass = item.acos < 20 ? 'high' : item.acos < 30 ? 'medium' : 'low';
+                
+                return `
+                    <tr>
+                        <td>
+                            <div class="product-cell">
+                                <img src="${imageSrc}" alt="${item.title}" class="product-image" 
+                                     onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect fill=%22%23f0f0f0%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%22 y=%2250%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%23999%22 font-size=%2212%22%3ENo Image%3C/text%3E%3C/svg%3E'">
+                                <div class="product-info">
+                                    <div class="product-name">${item.title}</div>
+                                    <div class="product-sku">SKU: ${item.sku}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>${item.asin}</td>
+                        <td>${item.units}</td>
+                        <td>${formatCurrency(item.revenue)}</td>
+                        <td>${formatCurrency(item.cost * item.units)}</td>
+                        <td>${formatCurrency(item.profit)}</td>
+                        <td><span class="metric-badge ${marginClass}">${item.margin.toFixed(1)}%</span></td>
+                        <td><span class="metric-badge ${acosClass}">${item.acos.toFixed(1)}%</span></td>
+                        <td>${item.status === 'shipped' ? '✅ Enviado' : '⏳ Pendente'}</td>
+                    </tr>
+                `;
+            }).join('');
+            
+            updatePagination();
+        }
+        
+        // Atualizar paginação
+        function updatePagination() {
+            const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+            document.getElementById('pageInfo').textContent = `Página ${currentPage} de ${totalPages}`;
+            document.getElementById('prevPage').disabled = currentPage === 1;
+            document.getElementById('nextPage').disabled = currentPage === totalPages;
+        }
+        
+        // Configurar event listeners
+        function setupEventListeners() {
+            // Busca
+            document.getElementById('searchProduct').addEventListener('input', filterData);
+            document.getElementById('filterCategory').addEventListener('change', filterData);
+            document.getElementById('filterStatus').addEventListener('change', filterData);
+            document.getElementById('filterMarketplace').addEventListener('change', filterData);
+            
+            // Paginação
+            document.getElementById('prevPage').addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    renderTable();
+                }
+            });
+            
+            document.getElementById('nextPage').addEventListener('click', () => {
+                const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    renderTable();
+                }
+            });
+        }
+        
+        // Filtrar dados
+        function filterData() {
+            const search = document.getElementById('searchProduct').value.toLowerCase();
+            const category = document.getElementById('filterCategory').value;
+            const status = document.getElementById('filterStatus').value;
+            const marketplace = document.getElementById('filterMarketplace').value;
+            
+            filteredData = allSalesData.filter(item => {
+                const matchSearch = !search || 
+                    item.title.toLowerCase().includes(search) ||
+                    item.asin.toLowerCase().includes(search) ||
+                    item.sku.toLowerCase().includes(search);
+                
+                const matchCategory = !category || item.category === category;
+                const matchStatus = !status || item.status === status;
+                const matchMarketplace = !marketplace || item.marketplace === marketplace;
+                
+                return matchSearch && matchCategory && matchStatus && matchMarketplace;
+            });
+            
+            currentPage = 1;
+            updateStats();
+            renderTable();
+        }
+        
+        // Gerar gráficos simples
+        function generateCharts() {
+            // Gráfico de vendas diárias
+            const dailyChart = document.getElementById('dailySalesChart');
+            for (let i = 0; i < 7; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                bar.style.height = `${Math.random() * 150 + 30}px`;
+                dailyChart.appendChild(bar);
+            }
+            
+            // Gráfico de categorias
+            const categoriesChart = document.getElementById('categoriesChart');
+            for (let i = 0; i < 5; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                bar.style.height = `${Math.random() * 150 + 30}px`;
+                categoriesChart.appendChild(bar);
+            }
+        }
+        
+        // Exportar para CSV
+        function exportToCSV() {
+            const headers = ['Produto', 'ASIN', 'SKU', 'Unidades', 'Receita', 'Custo', 'Lucro', 'Margem', 'ACOS'];
+            const rows = filteredData.map(item => [
+                item.title,
+                item.asin,
+                item.sku,
+                item.units,
+                item.revenue.toFixed(2),
+                (item.cost * item.units).toFixed(2),
+                item.profit.toFixed(2),
+                item.margin.toFixed(1) + '%',
+                item.acos.toFixed(1) + '%'
+            ]);
+            
+            let csv = headers.join(',') + '\n';
+            rows.forEach(row => {
+                csv += row.map(field => `"${field}"`).join(',') + '\n';
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `vendas_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+        }
+        
+        // Formatar moeda
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            }).format(value);
+        }
+    </script>
+</body>
+</html>

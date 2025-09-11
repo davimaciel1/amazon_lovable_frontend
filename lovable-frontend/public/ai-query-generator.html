@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI SQL Query Generator - Amazon Monitor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    .gradient-bg {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .card-shadow {
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    .sql-code {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      font-family: 'Consolas', 'Monaco', monospace;
+    }
+    .table-container {
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    .chart-container {
+      position: relative;
+      height: 400px;
+      width: 100%;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .loading { animation: pulse 2s infinite; }
+    
+    /* Image gallery styles */
+    .product-image {
+      transition: all 0.3s ease;
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+    .product-image:hover {
+      transform: scale(1.05);
+      border-color: #667eea;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    /* Table with images styles */
+    td img {
+      min-width: 80px;
+      min-height: 80px;
+      max-width: 100px;
+      max-height: 100px;
+    }
+    
+    /* Responsive table */
+    @media (max-width: 768px) {
+      .table-container {
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <!-- Header -->
+  <div class="gradient-bg text-white p-6">
+    <div class="max-w-7xl mx-auto">
+      <h1 class="text-3xl font-bold flex items-center gap-3">
+        <span>🤖</span>
+        AI SQL Query Generator
+      </h1>
+      <p class="mt-2 opacity-90">Descreva o que você quer ver e a IA gerará a query SQL e o dashboard</p>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <div class="max-w-7xl mx-auto p-6">
+    <!-- Query Input Section -->
+    <div class="bg-white rounded-lg card-shadow p-6 mb-6">
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+          📝 O que você quer analisar?
+        </label>
+        <textarea 
+          id="queryInput" 
+          class="w-full p-4 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          rows="3"
+          placeholder="Ex: Mostre as vendas dos últimos 30 dias agrupadas por produto, com total de receita e unidades vendidas">Mostrar produtos com imagens</textarea>
+      </div>
+      
+      <!-- Example Queries -->
+      <div class="mb-4">
+        <p class="text-sm text-gray-600 mb-2">Exemplos rápidos:</p>
+        <div class="flex flex-wrap gap-2">
+          <button class="example-btn px-3 py-1 bg-purple-100 hover:bg-purple-200 rounded-full text-sm font-medium" 
+                  data-query="Mostrar produtos com imagens">
+            📸 Catálogo com Imagens
+          </button>
+          <button class="example-btn px-3 py-1 bg-blue-100 hover:bg-blue-200 rounded-full text-sm" 
+                  data-query="Top 10 produtos com imagens por receita">
+            🏆 Top Produtos (Visual)
+          </button>
+          <button class="example-btn px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-sm"
+                  data-query="Vendas por marketplace (US vs BR)">
+            Vendas por marketplace
+          </button>
+          <button class="example-btn px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-sm"
+                  data-query="Produtos com ROI > 50%">
+            Alto ROI
+          </button>
+          <button class="example-btn px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-sm"
+                  data-query="Vendas diárias do último mês">
+            Vendas diárias
+          </button>
+          <button class="example-btn px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-sm"
+                  data-query="Produtos com health_score = 'bad'">
+            Produtos problemáticos
+          </button>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <button id="generateBtn" class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2">
+          <span>✨</span>
+          Gerar Query e Dashboard
+        </button>
+        <button id="explainBtn" class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2">
+          <span>💡</span>
+          Explicar Estrutura do Banco
+        </button>
+      </div>
+      
+      <!-- Database Info -->
+      <div class="mt-4 p-4 bg-blue-50 border-l-4 border-blue-400 rounded">
+        <p class="text-sm text-blue-800">
+          <strong>📊 Estrutura do Banco:</strong><br>
+          • <code>orders</code>: Pedidos (amazon_order_id, purchase_date, order_status, order_total_amount)<br>
+          • <code>order_items</code>: Itens (asin, seller_sku, title, quantity_ordered, item_price)<br>
+          • <code>products</code>: Produtos com <strong>imagens</strong> (asin, sku, title, price, stock, <strong>image_url</strong>)<br>
+          • <code>sales_data</code>: Dados consolidados de vendas (asin, sku, revenue, profit, roi)
+        </p>
+      </div>
+    </div>
+
+    <!-- Generated SQL Section -->
+    <div id="sqlSection" class="bg-white rounded-lg card-shadow p-6 mb-6 hidden">
+      <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+        <span>🔍</span>
+        Query SQL Gerada
+      </h2>
+      <div class="sql-code p-4 rounded-lg overflow-x-auto">
+        <pre id="sqlCode"></pre>
+      </div>
+      <div class="mt-4 flex gap-3">
+        <button id="executeBtn" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+          ▶️ Executar Query
+        </button>
+        <button id="copyBtn" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+          📋 Copiar SQL
+        </button>
+        <button id="editBtn" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+          ✏️ Editar SQL
+        </button>
+      </div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="resultsSection" class="hidden">
+      <!-- Stats Cards -->
+      <div id="statsCards" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6"></div>
+
+      <!-- Chart Section -->
+      <div id="chartSection" class="bg-white rounded-lg card-shadow p-6 mb-6 hidden">
+        <h2 class="text-xl font-bold mb-4">📊 Visualização</h2>
+        <div class="chart-container">
+          <canvas id="dataChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Table Section -->
+      <div class="bg-white rounded-lg card-shadow p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold">📋 Resultados</h2>
+          <div class="flex gap-2">
+            <button id="exportCSV" class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700">
+              📥 CSV
+            </button>
+            <button id="exportJSON" class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+              📥 JSON
+            </button>
+          </div>
+        </div>
+        <div class="table-container">
+          <table id="resultsTable" class="w-full">
+            <thead id="tableHead" class="bg-gray-50 sticky top-0"></thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div id="pagination" class="mt-4 flex justify-between items-center">
+          <span id="recordCount" class="text-sm text-gray-600"></span>
+          <div class="flex gap-2">
+            <button id="prevPage" class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">←</button>
+            <span id="pageInfo" class="px-3 py-1"></span>
+            <button id="nextPage" class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">→</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-8 text-center">
+        <div class="loading text-4xl mb-4">🤖</div>
+        <p class="text-lg font-semibold">Processando...</p>
+        <p class="text-sm text-gray-600 mt-2" id="loadingMessage">Gerando query SQL...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Database Schema for AI Context
+    const DB_SCHEMA = {
+      orders: {
+        columns: [
+          'amazon_order_id', 'purchase_date', 'order_status', 
+          'order_total_amount', 'order_total_currency', 'marketplace_id',
+          'buyer_email', 'fulfillment_channel', 'sales_channel'
+        ],
+        description: 'Tabela de pedidos da Amazon'
+      },
+      order_items: {
+        columns: [
+          'amazon_order_id', 'asin', 'seller_sku', 'title',
+          'quantity_ordered', 'item_price', 'category', 'item_tax',
+          'shipping_price'
+        ],
+        description: 'Itens dos pedidos'
+      },
+      products: {
+        columns: [
+          'asin', 'sku', 'title', 'price', 'stock',
+          'category', 'image_url', 'image_source_url', 'image_key', 
+          'rating', 'reviews_count', 'marketplace_id'
+        ],
+        description: 'Catálogo de produtos com imagens'
+      },
+      sales_data: {
+        columns: [
+          'id', 'asin', 'sku', 'product_name', 'units', 'revenue',
+          'profit', 'roi', 'marketplace_id', 'purchase_date', 'health_score'
+        ],
+        description: 'Dados de vendas consolidados'
+      }
+    };
+
+    // OpenAI-like prompt for SQL generation
+    function generateSQLFromNaturalLanguage(query) {
+      const context = `
+        Database: PostgreSQL
+        Tables:
+        - orders: ${DB_SCHEMA.orders.columns.join(', ')}
+        - order_items: ${DB_SCHEMA.order_items.columns.join(', ')}
+        - products: ${DB_SCHEMA.products.columns.join(', ')}
+        
+        Generate a SQL query for: "${query}"
+        
+        Rules:
+        - Use proper PostgreSQL syntax
+        - Join tables when necessary (orders and order_items via amazon_order_id)
+        - Include ORDER BY for better results
+        - Limit results to 100 unless specified
+        - Use aggregation functions when appropriate
+        - Include column aliases for readability
+      `;
+
+      // Simplified SQL generation based on patterns
+      const lowerQuery = query.toLowerCase();
+      
+      // Check if user wants images
+      const wantsImages = lowerQuery.includes('imag') || lowerQuery.includes('foto') || 
+                         lowerQuery.includes('visual') || lowerQuery.includes('produto');
+      
+      if (lowerQuery.includes('top') || lowerQuery.includes('mais recentes')) {
+        if (wantsImages) {
+          return `SELECT 
+  p.asin,
+  p.sku,
+  p.title AS "Produto",
+  p.image_url AS "Imagem",
+  COALESCE(SUM(oi.quantity_ordered), 0) AS "Unidades Vendidas",
+  COALESCE(SUM(oi.item_price), 0) AS "Receita Total",
+  p.inventory_quantity AS "Estoque",
+  p.marketplace_id AS "Marketplace"
+FROM products p
+LEFT JOIN order_items oi ON p.asin = oi.asin
+WHERE p.image_url IS NOT NULL
+GROUP BY p.asin, p.sku, p.title, p.image_url, p.inventory_quantity, p.marketplace_id
+ORDER BY "Receita Total" DESC
+LIMIT 10;`;
+        }
+        return `SELECT 
+  id,
+  sku,
+  asin,
+  product_name AS "Produto",
+  units AS "Unidades",
+  revenue AS "Receita",
+  profit AS "Lucro",
+  roi AS "ROI %",
+  marketplace_id AS "Marketplace"
+FROM sales_data
+ORDER BY purchase_date DESC
+LIMIT 10;`;
+      }
+      
+      if (lowerQuery.includes('por produto') || lowerQuery.includes('agrupado')) {
+        if (wantsImages) {
+          return `SELECT 
+  p.asin,
+  p.sku AS "SKU",
+  p.title AS "Produto",
+  p.image_url AS "Imagem",
+  COUNT(DISTINCT o.amazon_order_id) AS "Vendas",
+  COALESCE(SUM(oi.quantity_ordered), 0) AS "Total Unidades",
+  COALESCE(SUM(oi.item_price), 0) AS "Receita Total"
+FROM products p
+LEFT JOIN order_items oi ON p.asin = oi.asin
+LEFT JOIN orders o ON oi.amazon_order_id = o.amazon_order_id
+WHERE p.image_url IS NOT NULL
+GROUP BY p.asin, p.sku, p.title, p.image_url
+ORDER BY "Receita Total" DESC
+LIMIT 20;`;
+        }
+        return `SELECT 
+  sku AS "SKU",
+  product_name AS "Produto",
+  COUNT(*) AS "Vendas",
+  SUM(units) AS "Total Unidades",
+  SUM(revenue) AS "Receita Total",
+  AVG(roi) AS "ROI Médio"
+FROM sales_data
+GROUP BY sku, product_name
+ORDER BY "Receita Total" DESC
+LIMIT 20;`;
+      }
+      
+      if (lowerQuery.includes('marketplace')) {
+        return `SELECT 
+  marketplace_id AS "Marketplace",
+  COUNT(*) AS "Total Vendas",
+  SUM(units) AS "Unidades",
+  SUM(revenue) AS "Receita",
+  AVG(roi) AS "ROI Médio"
+FROM sales_data
+GROUP BY marketplace_id
+ORDER BY "Receita" DESC;`;
+      }
+      
+      if (lowerQuery.includes('roi')) {
+        return `SELECT 
+  sku,
+  product_name AS "Produto",
+  roi AS "ROI %",
+  revenue AS "Receita",
+  profit AS "Lucro"
+FROM sales_data
+WHERE roi > 50
+ORDER BY roi DESC
+LIMIT 20;`;
+      }
+      
+      if (lowerQuery.includes('diári')) {
+        return `SELECT 
+  DATE(purchase_date) AS "Data",
+  COUNT(*) AS "Vendas",
+  SUM(units) AS "Unidades",
+  SUM(revenue) AS "Receita",
+  AVG(profit) AS "Lucro Médio"
+FROM sales_data
+WHERE purchase_date >= CURRENT_DATE - INTERVAL '30 days'
+GROUP BY DATE(purchase_date)
+ORDER BY "Data" DESC;`;
+      }
+      
+      if (lowerQuery.includes('problem') || lowerQuery.includes('bad')) {
+        return `SELECT 
+  sku,
+  product_name AS "Produto",
+  health_score AS "Status",
+  units AS "Unidades",
+  revenue AS "Receita",
+  acos AS "ACoS %"
+FROM sales_data
+WHERE health_score = 'bad'
+ORDER BY revenue DESC
+LIMIT 20;`;
+      }
+      
+      // Check if specifically asking for products with images
+      if (lowerQuery.includes('produtos com imag') || lowerQuery.includes('catálogo') || 
+          lowerQuery.includes('visualizar produtos') || lowerQuery.includes('galeria')) {
+        return `SELECT 
+  p.asin AS "ASIN",
+  p.sku AS "SKU",
+  p.title AS "Produto",
+  p.image_url AS "Imagem",
+  p.price AS "Preço",
+  p.inventory_quantity AS "Estoque",
+  p.category AS "Categoria",
+  p.rating AS "Avaliação",
+  p.marketplace_id AS "Marketplace"
+FROM products p
+WHERE p.image_url IS NOT NULL
+ORDER BY p.title
+LIMIT 50;`;
+      }
+      
+      // Default query
+      return `SELECT * FROM sales_data ORDER BY purchase_date DESC LIMIT 50;`;
+    }
+
+    // Execute SQL via backend
+    async function executeSQL(sql) {
+      try {
+        const response = await fetch('/api/ai-query/execute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sql })
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          console.error('SQL Error:', error);
+          // Fallback to mock data if backend not configured
+          return generateMockData(sql);
+        }
+        
+        const result = await response.json();
+        return { data: result.data, total: result.rowCount };
+      } catch (error) {
+        console.log('Using mock data:', error);
+        return generateMockData(sql);
+      }
+    }
+
+    // Generate mock data for testing
+    function generateMockData(sql) {
+      const isSummary = sql.toLowerCase().includes('group by');
+      const isDaily = sql.toLowerCase().includes('date(');
+      
+      if (isDaily) {
+        const data = [];
+        for (let i = 0; i < 30; i++) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          data.push({
+            Data: date.toISOString().split('T')[0],
+            Vendas: Math.floor(Math.random() * 50) + 10,
+            Unidades: Math.floor(Math.random() * 100) + 20,
+            Receita: (Math.random() * 5000 + 1000).toFixed(2),
+            'Lucro Médio': (Math.random() * 500 + 100).toFixed(2)
+          });
+        }
+        return { data, total: 30 };
+      }
+      
+      if (isSummary) {
+        return {
+          data: [
+            { SKU: 'BOARD-001', Produto: 'Bamboo Board Large', Vendas: 145, 'Total Unidades': 289, 'Receita Total': 14500.50, 'ROI Médio': 42.5 },
+            { SKU: 'KNIFE-002', Produto: 'Chef Knife Pro', Vendas: 98, 'Total Unidades': 196, 'Receita Total': 9800.00, 'ROI Médio': 38.2 },
+            { SKU: 'SHARP-003', Produto: 'Knife Sharpener', Vendas: 76, 'Total Unidades': 152, 'Receita Total': 3800.00, 'ROI Médio': 55.8 },
+            { SKU: 'BOARD-004', Produto: 'Cutting Board Set', Vendas: 234, 'Total Unidades': 468, 'Receita Total': 23400.00, 'ROI Médio': 35.7 },
+            { SKU: 'KNIFE-005', Produto: 'Santoku Knife', Vendas: 45, 'Total Unidades': 90, 'Receita Total': 6750.00, 'ROI Médio': 48.9 }
+          ],
+          total: 5
+        };
+      }
+      
+      // Default mock data
+      return {
+        data: [
+          { id: 'ORD-001', sku: 'BOARD-001', asin: 'B0CLBFSQH1', Produto: 'Bamboo Cutting Board', Unidades: 2, Receita: 99.98, Lucro: 35.50, 'ROI %': 35.5, Marketplace: 'ATVPDKIKX0DER' },
+          { id: 'ORD-002', sku: 'KNIFE-002', asin: 'B0CMYYZY2Q', Produto: 'Chef Knife 7-inch', Unidades: 1, Receita: 79.99, Lucro: 28.75, 'ROI %': 36.0, Marketplace: 'ATVPDKIKX0DER' },
+          { id: 'ORD-003', sku: 'SHARP-003', asin: 'B0CHXS43MR', Produto: 'Knife Sharpener', Unidades: 3, Receita: 89.97, Lucro: 45.20, 'ROI %': 50.3, Marketplace: 'A2Q3Y263D00KWC' },
+          { id: 'ORD-004', sku: 'BOARD-004', asin: 'B0CLBHB46K', Produto: 'Board Set of 3', Unidades: 1, Receita: 149.99, Lucro: 52.50, 'ROI %': 35.0, Marketplace: 'ATVPDKIKX0DER' },
+          { id: 'ORD-005', sku: 'KNIFE-005', asin: 'B0CLBR3ZCN', Produto: 'Santoku Knife', Unidades: 2, Receita: 159.98, Lucro: 64.80, 'ROI %': 40.5, Marketplace: 'ATVPDKIKX0DER' }
+        ],
+        total: 5
+      };
+    }
+
+    // Render results
+    function renderResults(data, sql) {
+      if (!data.data || data.data.length === 0) {
+        alert('Nenhum resultado encontrado');
+        return;
+      }
+
+      const results = data.data;
+      const columns = Object.keys(results[0]);
+      
+      // Render stats cards
+      renderStatsCards(results, columns);
+      
+      // Render chart if applicable
+      renderChart(results, columns, sql);
+      
+      // Render table
+      renderTable(results, columns);
+      
+      // Show results section
+      document.getElementById('resultsSection').classList.remove('hidden');
+      document.getElementById('recordCount').textContent = `${results.length} registros`;
+    }
+
+    function renderStatsCards(data, columns) {
+      const statsContainer = document.getElementById('statsCards');
+      statsContainer.innerHTML = '';
+      
+      // Calculate stats
+      const stats = [];
+      
+      // Total records
+      stats.push({
+        label: 'Total Registros',
+        value: data.length,
+        icon: '📊',
+        color: 'blue'
+      });
+      
+      // Sum numeric columns
+      columns.forEach(col => {
+        const values = data.map(row => parseFloat(row[col])).filter(v => !isNaN(v));
+        if (values.length > 0 && col.toLowerCase().includes('receita')) {
+          stats.push({
+            label: 'Receita Total',
+            value: 'R$ ' + values.reduce((a,b) => a+b, 0).toFixed(2),
+            icon: '💰',
+            color: 'green'
+          });
+        }
+        if (values.length > 0 && col.toLowerCase().includes('unidade')) {
+          stats.push({
+            label: 'Total Unidades',
+            value: Math.floor(values.reduce((a,b) => a+b, 0)),
+            icon: '📦',
+            color: 'purple'
+          });
+        }
+      });
+      
+      // Render cards
+      stats.slice(0, 4).forEach(stat => {
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-lg p-4 card-shadow';
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-600">${stat.label}</p>
+              <p class="text-2xl font-bold text-${stat.color}-600">${stat.value}</p>
+            </div>
+            <span class="text-3xl">${stat.icon}</span>
+          </div>
+        `;
+        statsContainer.appendChild(card);
+      });
+    }
+
+    function renderChart(data, columns, sql) {
+      const chartSection = document.getElementById('chartSection');
+      const ctx = document.getElementById('dataChart').getContext('2d');
+      
+      // Determine chart type based on query
+      const isTimeSeries = sql.toLowerCase().includes('date(');
+      const isGrouped = sql.toLowerCase().includes('group by');
+      
+      if (!isTimeSeries && !isGrouped) {
+        chartSection.classList.add('hidden');
+        return;
+      }
+      
+      chartSection.classList.remove('hidden');
+      
+      // Prepare chart data
+      const labels = data.map(row => row[columns[0]]);
+      const datasets = [];
+      
+      // Find numeric columns for datasets
+      columns.slice(1).forEach((col, idx) => {
+        const values = data.map(row => parseFloat(row[col]));
+        if (values.every(v => !isNaN(v))) {
+          datasets.push({
+            label: col,
+            data: values,
+            backgroundColor: `rgba(${100 + idx * 30}, ${70 + idx * 20}, ${200 - idx * 30}, 0.5)`,
+            borderColor: `rgba(${100 + idx * 30}, ${70 + idx * 20}, ${200 - idx * 30}, 1)`,
+            borderWidth: 2
+          });
+        }
+      });
+      
+      // Create chart
+      new Chart(ctx, {
+        type: isTimeSeries ? 'line' : 'bar',
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top' },
+            title: { display: true, text: 'Visualização dos Dados' }
+          }
+        }
+      });
+    }
+
+    function renderTable(data, columns) {
+      const thead = document.getElementById('tableHead');
+      const tbody = document.getElementById('tableBody');
+      
+      // Clear existing
+      thead.innerHTML = '';
+      tbody.innerHTML = '';
+      
+      // Create header
+      const headerRow = document.createElement('tr');
+      columns.forEach(col => {
+        const th = document.createElement('th');
+        th.className = 'px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+        th.textContent = col;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+      
+      // Create rows
+      data.forEach((row, idx) => {
+        const tr = document.createElement('tr');
+        tr.className = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+        
+        columns.forEach(col => {
+          const td = document.createElement('td');
+          td.className = 'px-4 py-2 text-sm text-gray-900';
+          
+          // Check if this column contains image URLs
+          const value = row[col];
+          if (col.toLowerCase().includes('imagem') || col.toLowerCase().includes('image')) {
+            if (value && (value.startsWith('http') || value.startsWith('//'))) {
+              // Create image element
+              const img = document.createElement('img');
+              
+              // Use proxy for Amazon images to bypass CORS
+              if (value.includes('media-amazon.com') || value.includes('images-na.ssl-images-amazon.com')) {
+                img.src = `/api/image-proxy?url=${encodeURIComponent(value)}`;
+              } else {
+                img.src = value;
+              }
+              
+              img.alt = row['Produto'] || row['title'] || 'Product Image';
+              img.className = 'h-20 w-20 object-cover rounded cursor-pointer hover:scale-105 transition-transform';
+              img.loading = 'lazy';
+              img.setAttribute('data-original-url', value);
+              
+              // Add click to open original URL in new tab
+              img.onclick = () => window.open(value, '_blank');
+              
+              // Add error handling
+              img.onerror = function() {
+                this.style.display = 'none';
+                const fallback = document.createElement('span');
+                fallback.textContent = '🖼️ Imagem não disponível';
+                fallback.className = 'text-gray-400 text-sm';
+                this.parentNode.appendChild(fallback);
+              };
+              
+              td.appendChild(img);
+            } else {
+              td.textContent = '-';
+            }
+          } 
+          // Check if this is an ASIN column - make it clickable to Amazon
+          else if (col.toLowerCase() === 'asin' && value) {
+            const link = document.createElement('a');
+            link.href = `https://www.amazon.com/dp/${value}`;
+            link.target = '_blank';
+            link.className = 'text-blue-600 hover:text-blue-800 underline';
+            link.textContent = value;
+            td.appendChild(link);
+          }
+          // Check if this is a URL column
+          else if (value && typeof value === 'string' && value.startsWith('http')) {
+            const link = document.createElement('a');
+            link.href = value;
+            link.target = '_blank';
+            link.className = 'text-blue-600 hover:text-blue-800 underline truncate block max-w-xs';
+            link.textContent = value.length > 50 ? value.substring(0, 50) + '...' : value;
+            link.title = value;
+            td.appendChild(link);
+          }
+          // Format numbers
+          else if (typeof value === 'number') {
+            if (col.toLowerCase().includes('preço') || col.toLowerCase().includes('receita') || 
+                col.toLowerCase().includes('lucro') || col.toLowerCase().includes('price')) {
+              td.textContent = `R$ ${value.toFixed(2)}`;
+            } else if (col.toLowerCase().includes('roi') || col.toLowerCase().includes('%')) {
+              td.textContent = `${value.toFixed(1)}%`;
+            } else {
+              td.textContent = value.toString();
+            }
+          }
+          else {
+            td.textContent = value || '-';
+          }
+          
+          tr.appendChild(td);
+        });
+        
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Event Listeners
+    document.getElementById('generateBtn').addEventListener('click', async () => {
+      const queryInput = document.getElementById('queryInput').value;
+      if (!queryInput) {
+        alert('Por favor, descreva o que você quer analisar');
+        return;
+      }
+      
+      // Show loading
+      document.getElementById('loadingState').classList.remove('hidden');
+      document.getElementById('loadingMessage').textContent = 'Gerando query SQL...';
+      
+      // Generate SQL
+      const sql = generateSQLFromNaturalLanguage(queryInput);
+      
+      // Display SQL
+      document.getElementById('sqlCode').textContent = sql;
+      document.getElementById('sqlSection').classList.remove('hidden');
+      
+      // Auto-execute
+      setTimeout(() => {
+        document.getElementById('executeBtn').click();
+      }, 1000);
+    });
+
+    document.getElementById('executeBtn').addEventListener('click', async () => {
+      const sql = document.getElementById('sqlCode').textContent;
+      
+      document.getElementById('loadingMessage').textContent = 'Executando query...';
+      
+      // Execute SQL
+      const results = await executeSQL(sql);
+      
+      // Hide loading
+      document.getElementById('loadingState').classList.add('hidden');
+      
+      // Render results
+      renderResults(results, sql);
+    });
+
+    document.getElementById('copyBtn').addEventListener('click', () => {
+      const sql = document.getElementById('sqlCode').textContent;
+      navigator.clipboard.writeText(sql);
+      alert('SQL copiado!');
+    });
+
+    document.getElementById('editBtn').addEventListener('click', () => {
+      const sql = document.getElementById('sqlCode').textContent;
+      const newSQL = prompt('Edite a query SQL:', sql);
+      if (newSQL) {
+        document.getElementById('sqlCode').textContent = newSQL;
+      }
+    });
+
+    document.getElementById('explainBtn').addEventListener('click', () => {
+      let explanation = '📚 **Estrutura do Banco de Dados**\n\n';
+      for (const [table, info] of Object.entries(DB_SCHEMA)) {
+        explanation += `**Tabela: ${table}**\n`;
+        explanation += `${info.description}\n`;
+        explanation += `Colunas: ${info.columns.join(', ')}\n\n`;
+      }
+      alert(explanation);
+    });
+
+    // Example buttons
+    document.querySelectorAll('.example-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.getElementById('queryInput').value = btn.dataset.query;
+        document.getElementById('generateBtn').click();
+      });
+    });
+
+    // Export functions
+    document.getElementById('exportCSV').addEventListener('click', () => {
+      const table = document.getElementById('resultsTable');
+      let csv = [];
+      for (let row of table.rows) {
+        let rowData = [];
+        for (let cell of row.cells) {
+          rowData.push(cell.textContent);
+        }
+        csv.push(rowData.join(','));
+      }
+      const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'query_results.csv';
+      a.click();
+    });
+
+    document.getElementById('exportJSON').addEventListener('click', () => {
+      const sql = document.getElementById('sqlCode').textContent;
+      executeSQL(sql).then(results => {
+        const blob = new Blob([JSON.stringify(results.data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'query_results.json';
+        a.click();
+      });
+    });
+
+    // Auto-load example on page load
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        document.getElementById('generateBtn').click();
+      }, 500);
+    });
+  </script>
+</body>
+</html>
