@@ -11,12 +11,13 @@ export default defineConfig(({ mode }) => {
 
   return ({
     server: {
-      host: "::",
-      port: 8087,
+      host: "0.0.0.0",
+      port: 5000,
+      allowedHosts: "all",
       hmr: {
         protocol: 'ws',
         host: 'localhost',
-        port: 8087,
+        port: 5000,
         overlay: true,
       },
       watch: {
