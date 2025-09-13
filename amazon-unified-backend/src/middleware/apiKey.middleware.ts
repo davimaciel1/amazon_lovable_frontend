@@ -77,6 +77,12 @@ export function optionalApiKey(req: Request, _res: Response, next: NextFunction)
 // Accept either a valid API key (X-API-Key or Authorization: ApiKey <key>)
 // OR a valid Bearer token (JWT) in Authorization header
 export function requireAuthOrApiKey(req: Request, res: Response, next: NextFunction): void {
+  // Skip authentication in development if SKIP_AUTH is true
+  if (process.env.SKIP_AUTH === 'true') {
+    logger.debug('Authentication skipped due to SKIP_AUTH=true');
+    return next();
+  }
+
   const provided = extractApiKey(req);
 
   // If API key configured and provided matches
