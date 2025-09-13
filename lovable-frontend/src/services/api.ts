@@ -1,11 +1,11 @@
 import { toast } from "sonner";
 // import { useAuth } from "@clerk/clerk-react";
 
-// Default to local backend on port 8080 with /api base if VITE_API_URL is not set
+// Use proxy for Replit environment, direct connection for other environments
 const RAW_BASE: string | undefined = (import.meta.env as any).VITE_API_URL?.trim();
 const API_URL = RAW_BASE
   ? (RAW_BASE.endsWith('/api') ? RAW_BASE : `${RAW_BASE.replace(/\/$/, '')}/api`)
-  : 'http://localhost:8080/api';
+  : '/api'; // Use proxy path for Replit
 const API_KEY: string | undefined = (import.meta.env as any).VITE_API_KEY?.trim() || undefined;
 
 interface ApiResponse<T = any> {
