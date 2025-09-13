@@ -219,4 +219,36 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
   }
 });
 
+// TEMPORARY: Force Amazon sync without API key (for debugging)
+router.post('/force-amazon-sync', async (_req: Request, res: Response) => {
+  try {
+    console.log('🚀 [TEMP SYNC] Iniciando sincronização forçada da Amazon...');
+    
+    // Import the sync service
+    const { CompleteSyncService } = await import('../services/complete-sync.service');
+    const syncService = new CompleteSyncService();
+    
+    // Start sync in background
+    syncService.startSync().catch(error => {
+      console.error('❌ [TEMP SYNC] Erro na sincronização:', error);
+    });
+
+    console.log('✅ [TEMP SYNC] Sincronização iniciada em background');
+    
+    res.json({
+      success: true,
+      message: 'Sincronização da Amazon iniciada! Aguarde alguns minutos.',
+      status: 'sync_started',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('❌ [TEMP SYNC] Erro fatal:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Falha ao iniciar sincronização',
+      details: error.message
+    });
+  }
+});
+
 export const salesUnifiedRouter = router;
