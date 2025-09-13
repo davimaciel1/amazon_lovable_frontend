@@ -92,9 +92,12 @@ export function getDateRangeFromPreset(preset: string): { from: string; to: stri
   
   switch (preset) {
     case 'today':
+      // Use full day in UTC from 00:00:00 to 23:59:59
+      const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
       return {
-        from: today.toISOString(),
-        to: now.toISOString(),
+        from: startUTC.toISOString(),
+        to: endUTC.toISOString(),
       };
     
     case '24h':

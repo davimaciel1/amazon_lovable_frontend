@@ -13,6 +13,11 @@ const router = Router();
 // - sortDir: 'asc' | 'desc' (default 'desc')
 // - page, limit
 router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
+  // Disable caching for sales data to ensure fresh data
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  
   try {
     const {
       startDate,

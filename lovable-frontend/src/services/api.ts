@@ -48,6 +48,7 @@ class ApiService {
         ...options,
         headers,
         credentials: 'include', // Important for cookies
+        cache: 'no-store', // Disable cache for fresh data
       });
 
       if (!response.ok) {
