@@ -12,18 +12,21 @@ const imageCache = new NodeCache({ stdTTL: 604800 }); // 7 days cache
 
 // Use shared database pool
 
-// Decode Base64 ASIN or return plain ASIN
+// Decode Base64 product ID or return plain ID (supports multiple marketplaces)
 function decodeAsin(encodedId: string): string | null {
-  // First check if it's already a valid ASIN
-  if (/^[A-Z0-9]{10}$/.test(encodedId)) {
+  // First check if it's already a valid product ID (Amazon ASIN, Mercado Livre, or custom format)
+  if (/^[A-Z0-9-]{3,20}$/.test(encodedId)) {
     return encodedId;
   }
   
   // Try to decode from base64
   try {
     const decoded = Buffer.from(encodedId, 'base64').toString('utf-8');
-    // Validate ASIN format (10 alphanumeric characters)
-    if (/^[A-Z0-9]{10}$/.test(decoded)) {
+    // Validate product ID format - supports:
+    // - Amazon ASINs: [A-Z0-9]{10} (e.g., B07XQXZXQX)
+    // - Mercado Livre: MLB[0-9]+ (e.g., MLB4100879553)  
+    // - Custom SKUs: [A-Z0-9-]+ (e.g., IPP-PV-02)
+    if (/^[A-Z0-9-]{3,20}$/.test(decoded)) {
       return decoded;
     }
     return null;
