@@ -79,3 +79,55 @@ The system employs a multi-service architecture with specialized components:
 ## Additional Integrations
 - **WebSocket Support**: Real-time updates for dashboard metrics and live data synchronization
 - **Streamlit**: Python-based analytics interface for advanced data visualization and reporting (app.py)
+
+# Replit Environment Setup
+
+## Recent Changes (September 2025)
+
+Successfully configured the Amazon Seller Dashboard system for optimal performance in the Replit cloud environment with the following key implementations:
+
+## Development Configuration
+
+**Demo Mode Implementation**: Backend configured with fallback demo mode when Amazon API credentials are unavailable, ensuring full functionality for development and testing without external dependencies.
+
+**Environment Safety**: Configured with `DISABLE_SCHEDULES=true` and `ENABLE_AUTO_SYNC=false` to prevent unintended side effects in development environment.
+
+## Frontend Optimization for Replit
+
+**Vite Host Configuration**: Fixed critical allowedHosts configuration for Replit proxy compatibility:
+```typescript
+allowedHosts: ["localhost", "127.0.0.1", ".replit.dev", ".replit.app"]
+```
+
+**HMR Configuration**: Optimized Hot Module Replacement for secure WebSocket connections through Replit proxy:
+```typescript
+hmr: {
+  protocol: 'wss',
+  clientPort: 443,
+  overlay: true,
+}
+```
+
+## Workflow Configuration
+
+**Backend Workflow**: Express.js server on localhost:8080 for internal API communication
+**Frontend Workflow**: Vite development server on 0.0.0.0:5000 for external access through Replit proxy
+
+## Database Integration
+
+**PostgreSQL Setup**: Successfully connected to Replit's integrated PostgreSQL database with proper environment variable configuration for seamless development.
+
+## Deployment Configuration
+
+**Production Ready**: Configured autoscale deployment target with:
+- Build process for both frontend (Vite) and backend compilation
+- Production run configuration using Vite preview for frontend and Express for backend
+- Optimized for stateless website deployment with database state management
+
+## Development Status
+
+✅ **Fully Operational**: Both frontend and backend running successfully with full communication  
+✅ **Hot Reload**: Vite HMR connected and functioning  
+✅ **Database**: PostgreSQL connected and accessible  
+✅ **Deployment**: Production deployment configuration completed  
+✅ **Proxy Compatibility**: All host configuration issues resolved for Replit environment

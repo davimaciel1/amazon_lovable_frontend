@@ -13,11 +13,10 @@ export default defineConfig(({ mode }) => {
     server: {
       host: "0.0.0.0",
       port: 5000,
-      allowedHosts: "all",
+      allowedHosts: ["localhost", "127.0.0.1", ".replit.dev", ".replit.app"],
       hmr: {
-        protocol: 'ws',
-        host: 'localhost',
-        port: 5000,
+        protocol: 'wss',
+        clientPort: 443,
         overlay: true,
       },
       watch: {
