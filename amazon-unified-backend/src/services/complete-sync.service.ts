@@ -37,19 +37,31 @@ export class CompleteSyncService {
     this.progressFile = path.join(__dirname, '../../sync-progress.json');
     this.syncProgress = this.loadProgress();
     
-    this.sp = new SellingPartner({
-      region: (process.env.SP_API_REGION || 'na') as 'na' | 'eu' | 'fe',
-      refresh_token: process.env.SP_API_REFRESH_TOKEN!,
-      credentials: {
-        SELLING_PARTNER_APP_CLIENT_ID: process.env.SP_API_APP_CLIENT_ID!,
-        SELLING_PARTNER_APP_CLIENT_SECRET: process.env.SP_API_APP_CLIENT_SECRET!,
-        AWS_SELLING_PARTNER_ROLE: process.env.SP_API_ROLE_ARN!
-      } as any,
-      options: {
-        auto_request_tokens: true,
-        use_sandbox: false
+    // Initialize SP-API only if credentials are available
+    if (process.env.SP_API_REFRESH_TOKEN && process.env.SP_API_APP_CLIENT_ID) {
+      try {
+        this.sp = new SellingPartner({
+          region: (process.env.SP_API_REGION || 'na') as 'na' | 'eu' | 'fe',
+          refresh_token: process.env.SP_API_REFRESH_TOKEN!,
+          credentials: {
+            SELLING_PARTNER_APP_CLIENT_ID: process.env.SP_API_APP_CLIENT_ID!,
+            SELLING_PARTNER_APP_CLIENT_SECRET: process.env.SP_API_APP_CLIENT_SECRET!,
+            AWS_SELLING_PARTNER_ROLE: process.env.SP_API_ROLE_ARN!
+          } as any,
+          options: {
+            auto_request_tokens: true,
+            use_sandbox: false
+          }
+        });
+        logger.info('SP-API client initialized successfully');
+      } catch (error) {
+        logger.warn('Failed to initialize SP-API client:', error);
+        this.sp = null;
       }
-    });
+    } else {
+      logger.info('SP-API credentials not provided - running in demo mode');
+      this.sp = null;
+    }
   }
 
   /**
