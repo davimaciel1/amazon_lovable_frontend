@@ -318,13 +318,14 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
         // Determine marketplace based on real marketplace_id from database
         // ATVPDKIKX0DER = Amazon US → Show USA flag 🇺🇸
         // A2Q3Y263D00KWC = Amazon BR → Show Brazil flag 🇧🇷
+        // MLB = Mercado Livre Brasil → Show Brazil flag 🇧🇷
         const marketplaceId = row.original.marketplace_id || 'ATVPDKIKX0DER';
         let marketplace: 'brazil' | 'usa';
         
         if (marketplaceId === 'ATVPDKIKX0DER') {
           marketplace = 'usa';  // Amazon US → USA flag
-        } else if (marketplaceId === 'A2Q3Y263D00KWC') {
-          marketplace = 'brazil';  // Amazon BR → Brazil flag
+        } else if (marketplaceId === 'A2Q3Y263D00KWC' || marketplaceId === 'MLB') {
+          marketplace = 'brazil';  // Amazon BR or Mercado Livre Brasil → Brazil flag
         } else {
           marketplace = 'usa';  // Default to USA for any other marketplace
         }

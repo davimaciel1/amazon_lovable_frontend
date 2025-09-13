@@ -13,7 +13,7 @@ export function MarketplaceLogo({ marketplace, className = "" }: MarketplaceLogo
         };
       case 'mercadolivre':
         return {
-          src: 'https://upload.wikimedia.org/wikipedia/commons/8/82/Mercado_Libre_logo.svg',
+          src: '/mercadolivre-logo.jpg',
           alt: 'Mercado Livre'
         };
       case 'shopee':
