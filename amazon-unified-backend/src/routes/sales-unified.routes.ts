@@ -85,7 +85,7 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
           b.revenue,
           -- Join products only when ASIN matches (Amazon); ML may have no match
           p.marketplace_id,
-          p.inventory_quantity AS stock,
+          COALESCE(p.inventory_quantity, mi.available_quantity) AS stock,
           p.seller_count,
           p.buy_box_seller,
           p.compra,
@@ -107,6 +107,12 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
           sc.custos_manuais AS sc_custos_manuais
         FROM base b
         LEFT JOIN products p ON p.asin = b.asin
+        LEFT JOIN (
+          SELECT seller_sku, SUM(available_quantity) AS available_quantity
+          FROM ml_inventory 
+          WHERE status = 'active' OR status IS NULL
+          GROUP BY seller_sku
+        ) mi ON mi.seller_sku = b.sku
         LEFT JOIN LATERAL (
           SELECT c.*
           FROM sku_costs c

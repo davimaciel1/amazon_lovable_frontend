@@ -1,5 +1,6 @@
 import express from 'express';
 import { mercadoLivreSyncService } from '../services/mercadolivre-sync.service';
+import { mercadoLivreInventorySyncService } from '../services/mercadolivre-inventory-sync.service';
 import { optionalApiKey } from '../middleware/apiKey.middleware';
 import { logger } from '../utils/logger';
 
@@ -29,6 +30,28 @@ router.post('/last-days', optionalApiKey, async (req, res) => {
   } catch (e: any) {
     logger.error('ML sync last-days error', e);
     return res.status(500).json({ ok: false, error: e.message || 'Sync failed' });
+  }
+});
+
+// POST /api/ml/sync/inventory
+// Synchronize Mercado Livre inventory data
+router.post('/inventory', optionalApiKey, async (_req, res) => {
+  try {
+    logger.info('🔄 Starting ML inventory sync via API endpoint...');
+    const result = await mercadoLivreInventorySyncService.syncInventory();
+    logger.info(`✅ ML inventory sync completed: ${result.synced}/${result.total} items`);
+    return res.json({ 
+      ok: true, 
+      message: 'ML inventory sync completed successfully',
+      total: result.total,
+      synced: result.synced 
+    });
+  } catch (e: any) {
+    logger.error('ML inventory sync error', e);
+    return res.status(500).json({ 
+      ok: false, 
+      error: e.message || 'Inventory sync failed' 
+    });
   }
 });
 
