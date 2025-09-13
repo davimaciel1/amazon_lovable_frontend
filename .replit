@@ -56,3 +56,8 @@ externalPort = 8080
 [[ports]]
 localPort = 34341
 externalPort = 3000
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["bash", "-c", "cd amazon-unified-backend && npm start & cd ../lovable-frontend && npm run preview"]
+build = ["bash", "-c", "cd lovable-frontend && npm run build && cd ../amazon-unified-backend && npm run build"]
