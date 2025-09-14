@@ -12,7 +12,7 @@ export class SimpleAmazonSyncService {
   private sp: any;
   private syncInterval: NodeJS.Timeout | null = null;
   private refreshToken: string;
-  private marketplaceId: string = 'A2Q3Y263D00KWC'; // BR marketplace
+  private marketplaceId: string = 'ATVPDKIKX0DER'; // US marketplace
 
   constructor() {
     this.refreshToken = process.env.SP_API_REFRESH_TOKEN || '';
@@ -120,7 +120,7 @@ export class SimpleAmazonSyncService {
           endpoint: 'orders',
           query: {
             CreatedAfter: startDate.toISOString(),
-            MarketplaceIds: ['A2Q3Y263D00KWC']
+            MarketplaceIds: ['ATVPDKIKX0DER']
           }
         });
 
