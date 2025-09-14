@@ -107,6 +107,7 @@ async function searchMLBySKU(sku, accessToken) {
 
 // Map custom SKUs to ML item IDs
 const SKU_TO_MLB_MAPPING = {
+  // IPP-PV series (Piso Vinílico)
   'IPP-PV-01': 'MLB4100879553',
   'IPP-PV-02': 'MLB4100879555',
   'IPP-PV-03': 'MLB4100879557',
@@ -116,7 +117,12 @@ const SKU_TO_MLB_MAPPING = {
   'IPP-PV-07': 'MLB4100879565',
   'IPP-PV-08': 'MLB4100879567',
   'IPP-PV-09': 'MLB4100879569',
-  'IPP-PV-10': 'MLB4100879571'
+  'IPP-PV-10': 'MLB4100879571',
+  
+  // IPAS series - TO BE CONFIGURED BY SEARCHING ML API
+  // These will be searched automatically by the script
+  'IPAS01': null, // Will search by SKU
+  'IPAS04': null  // Will search by SKU
 };
 
 // Download and save image locally
