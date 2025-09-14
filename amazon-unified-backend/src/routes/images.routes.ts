@@ -101,15 +101,27 @@ if (!asin) {
       return res.send(cached);
     }
 
-    // Query database for product image URL
+    // Query database for product image URL (search by both ASIN and SKU)
 const query = `
-      SELECT asin, image_url, image_source_url, local_image_url, title 
+      SELECT asin, sku, image_url, image_source_url, local_image_url, title 
       FROM products 
-      WHERE asin = $1 
+      WHERE asin = $1 OR sku = $1
       LIMIT 1
     `;
     
     const result = await db.query(query, [asin]);
+    
+    console.log(`🔍 [IMAGE DEBUG] Query for "${asin}": found ${result.rows.length} rows`);
+    if (result.rows.length > 0) {
+      const row = result.rows[0];
+      console.log(`🔍 [IMAGE DEBUG] Product found:`, {
+        asin: row.asin,
+        sku: row.sku,
+        image_url: row.image_url,
+        image_source_url: row.image_source_url,
+        local_image_url: row.local_image_url
+      });
+    }
     
 if (result.rows.length === 0) {
       console.log('Product not found:', asin);
@@ -155,38 +167,86 @@ if (result.rows.length === 0) {
     }
 
     let imageUrl = (product.image_source_url as string | null) || (product.image_url as string | null);
+    console.log(`🔍 [IMAGE DEBUG] Final imageUrl for "${asin}": "${imageUrl}"`);
 
     // If no image URL in DB, try known fallback mapping first
 if (!imageUrl || imageUrl === '') {
+      console.log(`❌ [IMAGE DEBUG] No valid imageUrl found, rendering placeholder for "${asin}"`);
       // No known image URL; render a local placeholder image (PNG/JPEG)
       const placeholder = await renderPlaceholder(format, asinUpper);
       res.set({ 'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`, 'Cache-Control': 'public, max-age=300' });
       return res.send(placeholder);
     }
 
-    // Fetch image from Amazon
+    // Fetch image from external source (Amazon, Mercado Livre, etc)
+    const urlOrigin = new URL(imageUrl).origin;
+    const dynamicReferer = urlOrigin.includes('amazon') ? 'https://www.amazon.com/' : urlOrigin;
+    
+    console.log(`🌐 [IMAGE DEBUG] Starting fetch for "${asin}":`, {
+      imageUrl,
+      urlOrigin,
+      dynamicReferer
+    });
+    
     const imageResponse = await axios.get(imageUrl, {
       responseType: 'arraybuffer',
-      timeout: 5000,
+      timeout: 10000,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': 'image/*',
-        'Referer': 'https://www.amazon.com/'
+        'Referer': dynamicReferer
       },
-      maxRedirects: 5
+      maxRedirects: 5,
+      validateStatus: () => true // Log all status codes
     });
 
+    console.log(`🌐 [IMAGE DEBUG] Fetch response for "${asin}":`, {
+      status: imageResponse.status,
+      statusText: imageResponse.statusText,
+      contentType: imageResponse.headers['content-type'],
+      contentLength: imageResponse.headers['content-length'],
+      dataSize: imageResponse.data?.length || 'unknown'
+    });
+
+    if (imageResponse.status >= 400) {
+      console.log(`❌ [IMAGE DEBUG] HTTP error ${imageResponse.status} for "${asin}", falling back to placeholder`);
+      const placeholder = await renderPlaceholder(format, String(asin).toUpperCase());
+      res.set({ 'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`, 'Cache-Control': 'public, max-age=300' });
+      return res.send(placeholder);
+    }
+
     let imageBuffer = Buffer.from(imageResponse.data);
+    console.log(`🔄 [IMAGE DEBUG] Converting image for "${asin}":`, {
+      originalSize: imageBuffer.length,
+      originalType: imageResponse.headers['content-type'],
+      requestedFormat: format
+    });
 
     // Convert image format if needed
-    if (format === 'webp' && req.headers.accept?.includes('image/webp')) {
-      imageBuffer = await sharp(imageBuffer)
-        .webp({ quality: 85 })
-        .toBuffer();
-    } else if (format === 'jpg' || format === 'jpeg') {
-      imageBuffer = await sharp(imageBuffer)
-        .jpeg({ quality: 90 })
-        .toBuffer();
+    try {
+      if (format === 'webp' && req.headers.accept?.includes('image/webp')) {
+        imageBuffer = await sharp(imageBuffer)
+          .webp({ quality: 85 })
+          .toBuffer();
+      } else if (format === 'jpg' || format === 'jpeg') {
+        imageBuffer = await sharp(imageBuffer)
+          .jpeg({ quality: 90 })
+          .toBuffer();
+      }
+      console.log(`✅ [IMAGE DEBUG] Conversion successful for "${asin}":`, {
+        finalSize: imageBuffer.length,
+        finalFormat: format
+      });
+    } catch (conversionError: any) {
+      console.error(`❌ [IMAGE DEBUG] Conversion failed for "${asin}":`, {
+        error: conversionError.message,
+        originalType: imageResponse.headers['content-type'],
+        requestedFormat: format
+      });
+      // Fall back to placeholder on conversion error
+      const placeholder = await renderPlaceholder(format, String(asin).toUpperCase());
+      res.set({ 'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`, 'Cache-Control': 'public, max-age=300' });
+      return res.send(placeholder);
     }
 
     // Cache the processed image
@@ -206,7 +266,13 @@ if (!imageUrl || imageUrl === '') {
     res.send(imageBuffer);
 
   } catch (error: any) {
-    console.error('Error fetching image for ASIN:', asin, error.message);
+    console.error(`❌ [IMAGE DEBUG] ERROR fetching image for "${asin}":`, {
+      error_message: error.message,
+      error_code: error.code,
+      error_status: error.response?.status,
+      error_statusText: error.response?.statusText,
+      full_error: error
+    });
 
     // Return a rendered PNG/JPEG placeholder (no inline SVG)
     const asinUpper = typeof asin === 'string' ? asin.toUpperCase() : String(asin || '').toUpperCase();
@@ -270,4 +336,4 @@ router.get('/api/image-proxy', async (req: Request, res: Response): Promise<Resp
   }
 });
 
-export { router as imagesRouter };
+export { router as imagesRouter, imageCache };

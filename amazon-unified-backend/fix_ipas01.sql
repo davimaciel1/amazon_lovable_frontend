@@ -1,0 +1,1 @@
+UPDATE products SET image_url = 'https://via.placeholder.com/400x400/CCCCCC/666666?text=IPAS01', image_source_url = 'https://via.placeholder.com/400x400/CCCCCC/666666?text=IPAS01' WHERE asin = 'IPAS01' OR sku = 'IPAS01';
