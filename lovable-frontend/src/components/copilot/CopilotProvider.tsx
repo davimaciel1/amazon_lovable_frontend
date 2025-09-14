@@ -16,6 +16,7 @@ export function CopilotProvider({ children }: CopilotProviderProps) {
 
   return (
     <CopilotKit 
+      publicLicenseKey="ck_pub_5070a1669c88b37c30f1fa59d8205573"
       runtimeUrl={runtimeUrl}
       showDevConsole={import.meta.env.DEV}
     >
