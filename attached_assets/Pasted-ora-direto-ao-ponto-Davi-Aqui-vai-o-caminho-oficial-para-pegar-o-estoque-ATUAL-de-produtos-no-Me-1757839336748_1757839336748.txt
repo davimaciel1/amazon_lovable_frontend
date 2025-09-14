@@ -1,0 +1,163 @@
+ora direto ao ponto, Davi. Aqui vai o caminho “oficial” para pegar o estoque ATUAL de produtos no Mercado Envios Full (ME Full) e, na sequência, como plugar o MCP no seu app.
+
+Estoque atualizado do Full (ME Full)
+Conceito-chave
+
+No modelo novo de catálogo User Products (UP), o estoque “real” é gerenciado por UP + armazém. Os campos públicos de available_quantity em /items são apenas referenciais; para dado preciso você deve consultar o estoque distribuído por UP. 
+Developers
+
+Passo a passo
+
+Descobrir o user_product_id (UP) das suas variações
+
+Se partir de um item_id, consulte o item e recupere o user_product_id associado à variação. A documentação orienta obter o UP via /items e depois consultar o recurso de UP. 
+Mercado Livre Global Selling
+
+Para listar os seus itens e iterar: GET https://api.mercadolibre.com/users/{USER_ID}/items/search (autenticado). 
+Desenvolvedores Mercado Livre
+
+Consultar o estoque distribuído do UP (por armazém)
+
+Endpoint (Autenticado com Bearer):
+
+GET https://api.mercadolibre.com/user-products/{USER_PRODUCT_ID}/stock
+Authorization: Bearer {ACCESS_TOKEN}
+
+
+Esse recurso retorna os “nós” de estoque por tipologia. Para Full, filtre os nós onde o tipo é meli_facility (os outros serão seller_warehouse/selling_address). A própria doc explica que um mesmo UP pode ter as tipologias combinadas (ex.: seller_warehouse + meli_facility). 
+developers.mercadolibre.com.pa
+
+Cenários multi-origem / multi-armazém
+
+A doc de Multi-Origin / Distributed Stock reforça que a consulta é por user_product_id e retorna o estoque por armazém (útil para somar apenas os nós de Full). 
+Developers
++1
+
+Fulfillment (estoque e movimentações)
+
+A seção de Fulfillment indica que dá para consultar estoque atual gerenciado pelo Full e também operações/movimentos que o alteram (ex.: entradas/saídas internas). Use esses recursos quando precisar auditar diferenças. 
+Developers
+
+Atualização contínua (quase tempo real)
+
+Ative Notifications (My Applications → Notifications) para escutar eventos de orders/shipments/items e, ao receber um pedido/alteração, reconsultar o estoque distribuído do UP impactado. Isso evita polling agressivo. 
+Mercado Livre Global Selling
+
+Exemplo (cURL)
+# 1) listar itens do vendedor (para chegar nos item_ids)
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://api.mercadolibre.com/users/$USER_ID/items/search?limit=50&offset=0"
+
+# 2) pegar o user_product_id a partir do item (cada variação terá um)
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://api.mercadolibre.com/items/$ITEM_ID"
+
+# 3) consultar estoque distribuído do UP e filtrar Full (meli_facility)
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://api.mercadolibre.com/user-products/$USER_PRODUCT_ID/stock"
+
+
+(Os campos exatos do payload podem variar por site/rollout, mas a chave é: somar apenas os nós onde type == "meli_facility" para obter o estoque Full.) 
+developers.mercadolibre.com.pa
+
+Por que não confiar em /items.available_quantity?
+
+Porque a própria doc diz que esses valores são referenciais nos recursos públicos de Items & Searches. Para número “verdadeiro”, use o stock por UP. 
+Developers
+
+Como usar o MCP no seu app (Model Context Protocol)
+
+O que é: O MCP é um protocolo para conectar LLMs a ferramentas/servidores. O Mercado Libre/Mercado Pago disponibiliza MCP Servers que expõem utilitários (e até operações) para interagir com as APIs de forma assistida por IA. 
+Developers
++1
+
+Status e fontes
+
+Existe documentação do MCP Server do Mercado Libre/Mercado Pago explicando como integrar. 
+Developers
++1
+
+Há PR público no repositório oficial do MCP adicionando o servidor oficial do Mercado Pago, com Streamable HTTP Transport (client → server remotamente). 
+GitHub
+
+Existem também servidores comunitários (ex.: Lumile) para Mercado Libre. Use com cautela em produção. 
+Glama – MCP Hosting Platform
++1
+
+A equipe tech do ML publicou visão de uso de MCP em IDEs/flows internos — bom para entender a arquitetura. 
+Medium
+
+Passos práticos
+
+Escolha o cliente MCP no seu app (Node ou Python).
+
+Exemplos: pacote @modelcontextprotocol/sdk (TS/JS) ou clientes compatíveis com “HTTP (streamable) transport”.
+
+Conecte ao MCP Server (oficial Mercado Pago ou o de Mercado Libre que optar):
+
+Você configura um endpoint remoto do servidor MCP e passa credenciais (token OAuth/keys). O PR oficial cita o “Streamable HTTP Transport”, então a conexão é via HTTP bidirecional. 
+GitHub
+
+Provedores de credenciais
+
+O MCP server geralmente pede o access token do Mercado Libre/Mercado Pago (o mesmo obtido via OAuth). Armazene seguro (Vault/Secrets) e rotacione.
+
+Chamar ferramentas do servidor MCP
+
+Depois de conectado, o cliente MCP lista tools (ex.: “buscar item”, “ver estoque”, “consultar pedidos”). Você envia “tool calls” com parâmetros e recebe JSON de volta — que você pode exibir no seu painel, acionar fluxos no n8n, etc. (A lista exata de tools depende do servidor MCP que você usa.) 
+Developers
++1
+
+Exemplo (TypeScript, cliente MCP genérico – esqueleto)
+import { McpHttpClient } from "@modelcontextprotocol/client-http"; // exemplo de cliente HTTP
+
+const client = new McpHttpClient({
+  baseUrl: process.env.MCP_SERVER_URL!,         // ex.: URL do MCP Server (oficial MP ou ML)
+  apiKey: process.env.MCP_API_KEY,              // se o servidor exigir
+  headers: { Authorization: `Bearer ${process.env.ML_USER_TOKEN}` }, // se exigir token OAuth do ML
+});
+
+await client.connect();
+
+// listar ferramentas disponíveis no servidor
+const tools = await client.listTools();
+
+// chamar uma tool (ex.: "stock_by_user_product")
+const result = await client.callTool("stock_by_user_product", {
+  user_product_id: "UP123456",
+});
+
+console.log(result);
+
+
+Ajuste os nomes das tools/params de acordo com o servidor MCP escolhido (oficial do Mercado Pago ou o que você hospedar/usar para Mercado Libre). Consulte a doc do servidor para a lista de ferramentas. 
+Mercado Pago
++1
+
+Resumo do fluxo recomendado no seu app
+
+OAuth → obtenha/renove access_token. (Se ainda não fez, siga “Manage users / Authentication” da doc ML.) 
+Desenvolvedores Mercado Livre
+
+Mapeamento → de item_id/SKU/variação → user_product_id (UP). 
+Mercado Livre Global Selling
+
+Estoque Full → GET /user-products/{UP}/stock → somar apenas nós meli_facility. 
+developers.mercadolibre.com.pa
+
+Near real-time → assine Notifications e revalide o estoque dos UPs afetados após pedidos/alterações. 
+Mercado Livre Global Selling
+
+MCP (opcional, porém útil) → conecte um MCP Server (oficial MP ou ML) para acelerar integrações assistidas por IA no seu painel/assistente interno. 
+GitHub
++2
+Mercado Pago
++2
+
+Se quiser, já te entrego um snippet Node que:
+
+Resolve UPs a partir dos seus item_ids,
+
+Consulta o /user-products/{UP}/stock,
+
+Retorna apenas o estoque Full agregado por UP.
