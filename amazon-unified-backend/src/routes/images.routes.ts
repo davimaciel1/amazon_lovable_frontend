@@ -14,17 +14,17 @@ const imageCache = new NodeCache({ stdTTL: 604800 }); // 7 days cache
 
 // Mapping from custom SKUs to real MLB codes and their image URLs
 const ML_SKU_MAPPING: Record<string, {mlb: string, image: string}> = {
-  'IPP-PV-02': {
-    mlb: 'MLB4100879553',
-    image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-O.jpg'
-  },
   'IPAS01': {
-    mlb: 'MLB3772801129', 
-    image: 'https://http2.mlstatic.com/D_775949-MLB77572311431_072024-O.jpg'
+    mlb: 'MLB5677833500',
+    image: 'https://http2.mlstatic.com/D_746268-MLB91917127844_092025-O.jpg'
   },
   'IPAS04': {
-    mlb: 'MLB3458706470',
-    image: 'https://http2.mlstatic.com/D_745305-MLB74439298869_022024-F.jpg'
+    mlb: 'MLB5321963088',
+    image: 'https://http2.mlstatic.com/D_658745-MLB91044369481_082025-O.jpg'
+  },
+  'IPP-PV-02': {
+    mlb: 'MLB5308377982',
+    image: 'https://http2.mlstatic.com/D_711283-MLB87635691989_072025-O.jpg'
   }
 };
 

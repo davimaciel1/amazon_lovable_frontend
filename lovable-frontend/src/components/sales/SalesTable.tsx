@@ -37,6 +37,36 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 
+// ---- Utilities (module-scope, no React hooks) ----
+function getMLBFromSKU(skuOrAsin?: string): string | null {
+  if (!skuOrAsin) return null;
+  
+  // Mapping table for known SKUs to MLB codes
+  const MLB_MAP: Record<string, string> = {
+    'IPAS01': 'MLB5677833500',
+    'IPAS04': 'MLB5321963088',
+    'IPP-PV-02': 'MLB5308377982'
+  };
+  
+  // Check direct mapping first
+  if (MLB_MAP[skuOrAsin]) {
+    return MLB_MAP[skuOrAsin];
+  }
+  
+  // If already an MLB code, normalize it
+  if (/^ML[A-Z]?\d+/i.test(skuOrAsin)) {
+    return skuOrAsin.toUpperCase();
+  }
+  
+  // Try to extract MLB code embedded in the SKU
+  const match = skuOrAsin.match(/MLB\d{6,}/i);
+  if (match) {
+    return match[0].toUpperCase();
+  }
+  
+  return null;
+}
+
 type SalesTableProps = {
   data?: SalesResponse;
   isLoading: boolean;
@@ -389,14 +419,21 @@ const getProductUrl = (asin: string, marketplace: string, marketplaceType: strin
               {(row.original as any).costs?.custos_manuais ? (
                 <Badge variant="secondary" className="h-5 px-2 text-[10px]">Manual</Badge>
               ) : null}
-              {/* ASIN below the image */}
+              {/* Product code below the image - MLB for Mercado Livre, ASIN for Amazon */}
               <a 
                 href={getProductUrl(row.original.asin, marketplace, marketplaceType)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-muted-foreground font-mono hover:text-foreground transition-colors text-center"
               >
-                {row.original.asin}
+                {(() => {
+                  if (marketplaceType === 'mercadolivre') {
+                    // Get MLB code from SKU mapping
+                    const mlbCode = getMLBFromSKU(row.original.sku || row.original.asin);
+                    return mlbCode || row.original.asin;
+                  }
+                  return row.original.asin; // Amazon: show ASIN
+                })()}
               </a>
             </div>
             
