@@ -24,6 +24,7 @@ import { TrendingModal } from './TrendingModal';
 import { AddCostsModal } from './AddCostsModal';
 import { MarketplaceFlag } from './MarketplaceFlag';
 import { MarketplaceLogo } from './MarketplaceLogo';
+import { FulfillmentBadge } from './FulfillmentBadge';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -457,6 +458,7 @@ let marketplaceType: 'amazon' | 'mercadolivre' = 'amazon';
               <div className="flex items-center gap-2 mb-1">
                 <MarketplaceFlag marketplace={marketplace} />
                 <MarketplaceLogo marketplace={marketplaceType} />
+                <FulfillmentBadge fulfillmentType={row.original.fulfillment_type} />
               </div>
               
               {/* Product details: inline metrics beside image (as requested) */}

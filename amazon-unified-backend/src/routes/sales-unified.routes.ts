@@ -111,7 +111,26 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
           sc.imposto_percent AS sc_imposto_percent,
           sc.custo_variavel_percent AS sc_custo_variavel_percent,
           sc.margem_contribuicao_percent AS sc_margem_contribuicao_percent,
-          sc.custos_manuais AS sc_custos_manuais
+          sc.custos_manuais AS sc_custos_manuais,
+          -- Fulfillment information for Amazon (AFN = FBA, MFN = DBA)
+          CASE 
+            WHEN b.asin NOT LIKE 'MLB%' AND COALESCE(NULLIF(p.marketplace_id,''), 'AMAZON') != 'MLB' THEN
+              CASE ord.fulfillment_channel
+                WHEN 'AFN' THEN 'FBA'
+                WHEN 'MFN' THEN 'DBA'
+                ELSE 'OTHER'
+              END
+            ELSE NULL
+          END AS amazon_fulfillment,
+          -- Fulfillment information for Mercado Livre (based on shipping method)
+          CASE 
+            WHEN b.asin LIKE 'MLB%' OR COALESCE(NULLIF(p.marketplace_id,''), 'MLB') = 'MLB' THEN
+              CASE 
+                WHEN mlo.shipping_id IS NOT NULL THEN 'FULL'
+                ELSE 'FLEX'
+              END
+            ELSE NULL
+          END AS ml_fulfillment
         FROM base b
         LEFT JOIN products p ON p.asin = b.asin
         LEFT JOIN (
@@ -130,6 +149,31 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
           ORDER BY c.start_date DESC
           LIMIT 1
         ) sc ON true
+        -- Join with orders table to get Amazon fulfillment channel (simplified)
+        LEFT JOIN LATERAL (
+          SELECT DISTINCT fulfillment_channel
+          FROM orders
+          WHERE amazon_order_id IN (
+            SELECT DISTINCT order_id 
+            FROM unified_sales_lines usl 
+            WHERE usl.product_key = b.asin AND usl.sku = b.sku
+            LIMIT 5
+          )
+          LIMIT 1
+        ) ord ON (b.asin NOT LIKE 'MLB%')
+        -- Join with ml_orders table to get ML shipping info (simplified)  
+        LEFT JOIN LATERAL (
+          SELECT shipping_id
+          FROM ml_orders
+          WHERE ml_order_id::text IN (
+            SELECT DISTINCT order_id 
+            FROM unified_sales_lines usl 
+            WHERE usl.product_key = b.asin AND usl.sku = b.sku
+            AND order_id ~ '^[0-9]+$'
+            LIMIT 5
+          )
+          LIMIT 1
+        ) mlo ON (b.asin LIKE 'MLB%')
       )
       SELECT 
         j.asin,
@@ -150,7 +194,9 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
         COALESCE(j.sc_custo_variavel_percent, j.custo_variavel_percent) AS custo_variavel_percent,
         COALESCE(j.sc_margem_contribuicao_percent, j.margem_contribuicao_percent) AS margem_contribuicao_percent,
         COALESCE(j.sc_custos_manuais, j.custos_manuais) AS custos_manuais,
-        ml.item_id AS ml_item_id
+        ml.item_id AS ml_item_id,
+        -- Add fulfillment information
+        COALESCE(j.amazon_fulfillment, j.ml_fulfillment) AS fulfillment_type
       FROM joined j
       LEFT JOIN ml_inventory ml ON (
         -- Map ML products: try both direct MLB match and SKU mapping
@@ -233,6 +279,7 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
           margem_contribuicao_percent,
           custos_manuais,
         },
+        fulfillment_type: row.fulfillment_type || null,
       };
     });
 
