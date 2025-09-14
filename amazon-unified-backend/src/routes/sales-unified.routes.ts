@@ -147,13 +147,15 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
               END
             ELSE NULL
           END AS amazon_fulfillment,
-          -- Fulfillment information for Mercado Livre (enhanced detection with fallback)
+          -- Fulfillment information for Mercado Livre (enhanced detection with comprehensive mapping)
           CASE 
             WHEN b.asin LIKE 'MLB%' OR COALESCE(NULLIF(p.marketplace_id,''), 'MLB') = 'MLB' THEN
               CASE 
-                WHEN LOWER(mlo.logistic_type) = 'fulfillment' THEN 'FULL'
-                WHEN LOWER(mlo.logistic_type) = 'self_service' THEN 'FLEX'
-                WHEN LOWER(mlo.logistic_type) = 'drop_off' THEN 'FLEX'
+                WHEN LOWER(mlo.logistic_type) IN ('fulfillment', 'full') THEN 'FULL'
+                WHEN LOWER(mlo.logistic_type) IN ('self_service', 'drop_off', 'cross_docking') THEN 'FLEX'
+                WHEN LOWER(mlo.logistic_mode) LIKE 'xd%' THEN 'FLEX'
+                -- Demo mode fallback: assume FULL if no token provided and MLB marketplace
+                WHEN mlo.logistic_type IS NULL AND '${process.env.ML_REFRESH_TOKEN || ''}' = '' THEN 'FULL'
                 ELSE 'OTHER'
               END
             ELSE NULL
@@ -188,9 +190,20 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
           )
           LIMIT 1
         ) ord ON (b.asin NOT LIKE 'MLB%')
-        -- Join with ml_orders table to get ML logistic info (simplified)  
+        -- Join with ml_orders table to get ML logistic info (enhanced with raw JSON fallback)  
         LEFT JOIN LATERAL (
-          SELECT shipping_id, logistic_type, logistic_mode
+          SELECT 
+            shipping_id, 
+            COALESCE(
+              NULLIF(logistic_type,''), 
+              LOWER(raw->'shipping'->'logistic'->>'type'), 
+              LOWER(raw->'shipping'->>'logistic_type')
+            ) AS logistic_type,
+            COALESCE(
+              NULLIF(logistic_mode,''), 
+              LOWER(raw->'shipping'->'logistic'->>'mode'), 
+              LOWER(raw->'shipping'->>'mode')
+            ) AS logistic_mode
           FROM ml_orders
           WHERE ml_order_id::text IN (
             SELECT DISTINCT order_id 
@@ -199,6 +212,7 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
             AND order_id ~ '^[0-9]+$'
             LIMIT 5
           )
+          ORDER BY created_at DESC
           LIMIT 1
         ) mlo ON (b.asin LIKE 'MLB%')
       )
