@@ -12,14 +12,14 @@ export class SimpleAmazonSyncService {
   private sp: any;
   private syncInterval: NodeJS.Timeout | null = null;
   private refreshToken: string;
-  private marketplaceId: string = 'ATVPDKIKX0DER'; // US marketplace
+  private marketplaceId: string = 'A2Q3Y263D00KWC'; // BR marketplace
 
   constructor() {
     this.refreshToken = process.env.SP_API_REFRESH_TOKEN || '';
     
     // Initialize SP-API client
     this.sp = new SellingPartner({
-      region: 'na',
+      region: 'na', // Keep 'na' region for BR marketplace
       refresh_token: this.refreshToken,
       credentials: {
         SELLING_PARTNER_APP_CLIENT_ID: process.env.SP_API_CLIENT_ID,
@@ -120,7 +120,7 @@ export class SimpleAmazonSyncService {
           endpoint: 'orders',
           query: {
             CreatedAfter: startDate.toISOString(),
-            MarketplaceIds: ['ATVPDKIKX0DER']
+            MarketplaceIds: ['A2Q3Y263D00KWC']
           }
         });
 
@@ -149,7 +149,7 @@ export class SimpleAmazonSyncService {
       const itemsResponse = await this.sp.callAPI({
         operation: 'getOrderItems',
         endpoint: 'orders',
-        path: `/orders/v0/orders/${orderId}/orderItems`
+        path: { orderId }
       });
 
       if (itemsResponse && (itemsResponse.OrderItems || (itemsResponse.payload && itemsResponse.payload.OrderItems))) {
