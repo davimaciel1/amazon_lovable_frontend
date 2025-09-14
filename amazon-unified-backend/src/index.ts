@@ -32,6 +32,7 @@ import { validateAdsAPIConfig } from './config/amazon-ads-api';
 import { dashboardRouter } from './routes/dashboard.routes';
 import { salesRouter } from './routes/sales.routes';
 import { ordersRouter } from './routes/orders.routes';
+import { ordersDetailedRouter } from './routes/orders-detailed.routes';
 import { productsRouter } from './routes/products.routes';
 import { systemRouter } from './routes/system.routes';
 import syncRoutes from './routes/sync.routes';
@@ -237,6 +238,7 @@ app.use('/api/sales-simple', salesSimpleRouter);  // New simple sales route with
 app.use('/api/sales', salesRouter);
 app.use('/api/sales-unified', salesUnifiedRouter);
 app.use('/api/orders', ordersRouter);
+app.use('/api/orders-detailed', ordersDetailedRouter);
 app.use('/api/ml/orders', mlOrdersRouter);
 app.use('/api/ml/auth', mlAuthRouter);
 app.use('/api/ml/credentials', mlCredentialsRouter);
