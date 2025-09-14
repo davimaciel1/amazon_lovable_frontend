@@ -578,9 +578,10 @@ router.post('/force-regenerate-ipas01', requireAuthOrApiKey, async (_req: Reques
 });
 
 // Fix IPAS01 invalid image URL (admin-only)
-router.post('/fix-ipas01-url', requireAuthOrApiKey, async (_req: Request, res: Response) => {
+router.post('/fix-ipas01-url', requireAuthOrApiKey, async (req: Request, res: Response) => {
   try {
-    const newUrl = 'https://via.placeholder.com/400x400/4A90E2/FFFFFF?text=IPAS01+ML';
+    // Use a working image URL that works in Replit environment
+    const newUrl = req.body?.new_url || 'https://picsum.photos/400/400?random=1';
     
     console.log('🔧 [FIX] Updating IPAS01 image URL...');
     
