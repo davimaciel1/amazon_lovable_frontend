@@ -346,34 +346,42 @@ class MercadoLivreInventorySyncService {
         return { success: false, quantity: 0, error: 'Invalid stock data format' };
       }
       
-      // Sum only meli_facility nodes (Full stock) with validation
-      let totalFullStock = 0;
+      // Sum all valid stock nodes (prioritize meli_facility but accept others)
+      let totalStock = 0;
       let validNodesFound = 0;
+      let hasMeliFacility = false;
       
       for (const node of stockNodes) {
         if (node && typeof node === 'object') {
           // Support multiple quantity field variants
           const quantityValue = node.quantity ?? node.available ?? node.available_quantity;
           
-          if (node.type === 'meli_facility' && typeof quantityValue === 'number' && !isNaN(quantityValue)) {
-            totalFullStock += Math.max(0, quantityValue); // Ensure non-negative
-            validNodesFound++;
+          if (typeof quantityValue === 'number' && !isNaN(quantityValue)) {
+            if (node.type === 'meli_facility') {
+              hasMeliFacility = true;
+              totalStock += Math.max(0, quantityValue); // Ensure non-negative
+              validNodesFound++;
+            } else if (!hasMeliFacility) {
+              // Only count non-meli_facility if no meli_facility found
+              totalStock += Math.max(0, quantityValue);
+              validNodesFound++;
+            }
           }
         }
       }
       
-      // CRITICAL FIX: Return success=false when no valid meli_facility nodes found
+      // Accept any valid stock nodes
       if (validNodesFound === 0) {
         return {
           success: false,
           quantity: 0,
-          error: 'No valid meli_facility nodes found - cannot determine stock'
+          error: 'No valid stock nodes found - cannot determine stock'
         };
       }
       
       return {
         success: true,
-        quantity: totalFullStock
+        quantity: totalStock
       };
     } catch (error) {
       return {
