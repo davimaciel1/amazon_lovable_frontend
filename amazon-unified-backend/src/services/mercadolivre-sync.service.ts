@@ -207,12 +207,17 @@ class MercadoLivreSyncService {
     let total = 0;
     let synced = 0;
 
+    // Use appropriate date field based on status
+    const dateField = status === 'paid' ? 'order.date_closed' : 'order.date_last_updated';
+    const fromParam = `${dateField}.from`;
+    const toParam = `${dateField}.to`;
+
     for (let page = 0; page < 200; page++) { // hard cap pages as safety
       const url = this.buildSearchUrl({
         seller: sellerId,
         'order.status': status,
-        ...(fromIso ? { 'order.date_created.from': fromIso } : {}),
-        ...(toIso ? { 'order.date_created.to': toIso } : {}),
+        ...(fromIso ? { [fromParam]: fromIso } : {}),
+        ...(toIso ? { [toParam]: toIso } : {}),
         offset,
         limit,
       });
@@ -255,6 +260,50 @@ class MercadoLivreSyncService {
       }
       offset = paging.offset + paging.limit;
       if (offset >= total) break;
+    }
+
+    // If no results with primary date field, try fallback with order.date_created
+    if (total === 0 && synced === 0 && fromIso && toIso && status === 'paid') {
+      logger.info(`[ML Sync] No results with ${dateField}, trying fallback with order.date_created`);
+      
+      offset = 0;
+      for (let page = 0; page < 200; page++) {
+        const fallbackUrl = this.buildSearchUrl({
+          seller: sellerId,
+          'order.status': status,
+          'order.date_created.from': fromIso,
+          'order.date_created.to': toIso,
+          offset,
+          limit,
+        });
+
+        const resp = await axios.get(fallbackUrl, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          timeout: 30000,
+          validateStatus: () => true,
+        });
+        
+        if (resp.status !== 200) break;
+
+        const data = resp.data || {};
+        const results: any[] = data.results || [];
+        const paging = data.paging || {};
+        
+        if (results.length === 0) break;
+        
+        for (const order of results) {
+          try {
+            await this.upsertOrder(order);
+            synced++;
+          } catch (e) {
+            logger.error('Failed to upsert ML order (fallback)', { id: order?.id, error: (e as Error).message });
+          }
+        }
+
+        if (!paging || typeof paging.offset !== 'number' || typeof paging.limit !== 'number') break;
+        offset = paging.offset + paging.limit;
+        if (offset >= (paging.total || results.length)) break;
+      }
     }
 
     return { total, synced };
