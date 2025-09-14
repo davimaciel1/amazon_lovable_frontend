@@ -628,7 +628,7 @@ class MercadoLivreInventorySyncService {
                 `, [
                   item.id,
                   variation.id || '',
-                  variation.seller_custom_field || item.seller_custom_field,
+                  variation.id || item.id,
                   variation.available_quantity || 0,
                   item.title,
                   item.status,
@@ -646,7 +646,7 @@ class MercadoLivreInventorySyncService {
                 `, [
                   item.id,
                   variation.id || '',
-                  variation.seller_custom_field || item.seller_custom_field,
+                  variation.id || item.id,
                   variation.available_quantity || 0,
                   item.title,
                   item.status,
@@ -686,7 +686,7 @@ class MercadoLivreInventorySyncService {
               `, [
                 item.id,
                 '', // No variation - use empty string
-                item.seller_custom_field,
+                item.id,
                 item.available_quantity || 0,
                 item.title,
                 item.status,
@@ -704,7 +704,7 @@ class MercadoLivreInventorySyncService {
               `, [
                 item.id,
                 '', // No variation - use empty string
-                item.seller_custom_field,
+                item.id,
                 item.available_quantity || 0,
                 item.title,
                 item.status,

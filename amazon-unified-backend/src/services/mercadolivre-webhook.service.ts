@@ -18,13 +18,49 @@ interface StockUpdatePayload {
   variation_id?: string;
   available_quantity: number;
   status: string;
-  user_product_id?: string;
-  seller_custom_field?: string;
+  title?: string;
+  seller_sku?: string;
+  site_id?: string;
 }
 
 class MercadoLivreWebhookService {
   private accessToken: string | null = null;
   private accessTokenExpiry: number | null = null;
+  private tableEnsured = false;
+
+  /**
+   * Garantir que a tabela de webhook logs existe
+   */
+  private async ensureWebhookLogsTable() {
+    if (this.tableEnsured) return;
+    
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS ml_webhook_logs (
+          id BIGSERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          topic TEXT NOT NULL,
+          resource TEXT NOT NULL,
+          application_id TEXT,
+          attempts INTEGER DEFAULT 0,
+          sent_at TIMESTAMPTZ,
+          received_at TIMESTAMPTZ,
+          processed_at TIMESTAMPTZ DEFAULT NOW(),
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_ml_webhook_logs_resource_topic_sent 
+        ON ml_webhook_logs (resource, topic, sent_at);
+        CREATE INDEX IF NOT EXISTS idx_ml_webhook_logs_topic 
+        ON ml_webhook_logs (topic, created_at);
+      `);
+      
+      this.tableEnsured = true;
+      logger.info('✅ ml_webhook_logs table ready');
+    } catch (error) {
+      logger.error('❌ Failed to create ml_webhook_logs table:', error);
+      throw error;
+    }
+  }
 
   private async getCredentials() {
     const res = await pool.query(
@@ -118,6 +154,8 @@ class MercadoLivreWebhookService {
    */
   private async logWebhook(payload: MLWebhookPayload) {
     try {
+      await this.ensureWebhookLogsTable();
+      
       await pool.query(`
         INSERT INTO ml_webhook_logs (
           user_id, topic, resource, application_id, 
@@ -133,8 +171,10 @@ class MercadoLivreWebhookService {
         payload.sent,
         payload.received
       ]);
+      
+      logger.debug(`📝 Webhook logged: ${payload.topic} - ${payload.resource}`);
     } catch (error) {
-      logger.warn('Failed to log webhook (table may not exist):', error);
+      logger.warn('Failed to log webhook:', error);
     }
   }
 
@@ -250,8 +290,9 @@ class MercadoLivreWebhookService {
           item_id: itemData.id,
           available_quantity: itemData.available_quantity,
           status: itemData.status,
-          seller_custom_field: itemData.seller_custom_field,
-          user_product_id: itemData.user_product_id
+          title: itemData.title,
+          seller_sku: itemData.seller_sku,
+          site_id: itemData.site_id
         });
       }
 
@@ -263,8 +304,9 @@ class MercadoLivreWebhookService {
             variation_id: variation.id,
             available_quantity: variation.available_quantity,
             status: itemData.status,
-            seller_custom_field: variation.seller_custom_field,
-            user_product_id: variation.user_product_id
+            title: itemData.title,
+            seller_sku: variation.seller_sku || itemData.seller_sku,
+            site_id: itemData.site_id
           });
         }
       }
@@ -285,28 +327,32 @@ class MercadoLivreWebhookService {
    * Upsert de dados de estoque na tabela local
    */
   private async upsertStockData(data: StockUpdatePayload) {
+    // Handle NULL variation_id by converting to empty string to match table DEFAULT
+    const variationId = data.variation_id || '';
+    
     const query = `
       INSERT INTO ml_inventory (
         item_id, variation_id, available_quantity, status,
-        seller_custom_field, user_product_id, last_updated, synced_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-      ON CONFLICT (item_id, COALESCE(variation_id, ''))
+        title, seller_sku, site_id, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+      ON CONFLICT (item_id, variation_id)
       DO UPDATE SET
         available_quantity = EXCLUDED.available_quantity,
         status = EXCLUDED.status,
-        seller_custom_field = EXCLUDED.seller_custom_field,
-        user_product_id = EXCLUDED.user_product_id,
-        last_updated = NOW(),
-        synced_at = NOW()
+        title = EXCLUDED.title,
+        seller_sku = EXCLUDED.seller_sku,
+        site_id = EXCLUDED.site_id,
+        updated_at = NOW()
     `;
 
     await pool.query(query, [
       data.item_id,
-      data.variation_id || null,
+      variationId,
       data.available_quantity,
       data.status,
-      data.seller_custom_field || null,
-      data.user_product_id || null
+      data.title || null,
+      data.seller_sku || null,
+      data.site_id || null
     ]);
   }
 
@@ -374,15 +420,15 @@ class MercadoLivreWebhookService {
       const result = await pool.query(`
         SELECT 
           COUNT(*) as total,
-          COUNT(CASE WHEN last_updated < synced_at - INTERVAL '1 hour' THEN 1 END) as outdated
+          COUNT(CASE WHEN updated_at < NOW() - INTERVAL '1 hour' THEN 1 END) as potentially_outdated
         FROM ml_inventory 
         WHERE item_id = $1
       `, [itemId]);
 
-      const { total, outdated } = result.rows[0];
+      const { potentially_outdated } = result.rows[0];
       
-      // Se mais de 50% dos registros estão desatualizados, fazer sync completo
-      return parseInt(outdated) > parseInt(total) * 0.5;
+      // Se há registros potencialmente desatualizados (mais de 1 hora), fazer sync completo
+      return parseInt(potentially_outdated) > 0;
     } catch (error) {
       logger.warn('Failed to check sync status:', error);
       return false;
@@ -430,7 +476,7 @@ class MercadoLivreWebhookService {
       let query = `
         SELECT item_id, variation_id, available_quantity, status
         FROM ml_inventory
-        WHERE status = 'active' AND (last_updated > synced_at OR synced_at IS NULL)
+        WHERE status = 'active' AND updated_at > NOW() - INTERVAL '5 minutes'
       `;
       const params: any[] = [];
 
@@ -456,8 +502,8 @@ class MercadoLivreWebhookService {
           updated++;
           // Marcar como sincronizado
           await pool.query(
-            `UPDATE ml_inventory SET synced_at = NOW() WHERE item_id = $1 AND COALESCE(variation_id, '') = COALESCE($2, '')`,
-            [row.item_id, row.variation_id]
+            `UPDATE ml_inventory SET updated_at = NOW() WHERE item_id = $1 AND variation_id = $2`,
+            [row.item_id, row.variation_id || '']
           );
         } else {
           errors++;

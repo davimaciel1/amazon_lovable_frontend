@@ -43,6 +43,8 @@ import { mlOrdersRouter } from './routes/ml.orders.routes';
 import { mlAuthRouter } from './routes/ml.auth.routes';
 import { mlSyncRouter } from './routes/ml.sync.routes';
 import { mlCredentialsRouter } from './routes/ml.credentials.routes';
+import { mlWebhooksRouter } from './routes/ml.webhooks.routes';
+import { mlBidirectionalSyncRouter } from './routes/ml.bidirectional-sync.routes';
 import { costsRouter } from './routes/costs.routes';
 
 let salesSimpleRouter: any;
@@ -238,6 +240,8 @@ app.use('/api/ml/orders', mlOrdersRouter);
 app.use('/api/ml/auth', mlAuthRouter);
 app.use('/api/ml/credentials', mlCredentialsRouter);
 app.use('/api/ml/sync', mlSyncRouter);
+app.use('/api/ml/webhooks', mlWebhooksRouter);
+app.use('/api/ml/bidirectional-sync', mlBidirectionalSyncRouter);
 app.use('/api/costs', costsRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/system', systemRouter);

@@ -13,14 +13,14 @@ async function createMLInventoryTable() {
       -- Create table for storing Mercado Livre inventory data
       CREATE TABLE IF NOT EXISTS ml_inventory (
         item_id text NOT NULL,
-        variation_id text,
+        variation_id text NOT NULL DEFAULT '',
         seller_sku text,
         available_quantity integer NOT NULL DEFAULT 0,
         title text,
         status text,
         site_id text,
         updated_at timestamptz NOT NULL DEFAULT now(),
-        PRIMARY KEY (item_id, COALESCE(variation_id, ''))
+        PRIMARY KEY (item_id, variation_id)
       );
 
       -- Create index for faster SKU lookups

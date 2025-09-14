@@ -1,14 +1,14 @@
 import express from 'express';
 import { mercadoLivreSyncService } from '../services/mercadolivre-sync.service';
 import { mercadoLivreInventorySyncService } from '../services/mercadolivre-inventory-sync.service';
-import { optionalApiKey } from '../middleware/apiKey.middleware';
+import { requireApiKey } from '../middleware/apiKey.middleware';
 import { logger } from '../utils/logger';
 
 const router = express.Router();
 
 // POST /api/ml/sync/run
 // Body: { from?: string (ISO), to?: string (ISO), status?: string }
-router.post('/run', optionalApiKey, async (req, res) => {
+router.post('/run', requireApiKey, async (req, res) => {
   try {
     const { from, to, status } = req.body || {};
     const result = await mercadoLivreSyncService.syncByDateRange(from, to, status || 'paid');
@@ -21,7 +21,7 @@ router.post('/run', optionalApiKey, async (req, res) => {
 
 // POST /api/ml/sync/last-days
 // Body: { days?: number, status?: string }
-router.post('/last-days', optionalApiKey, async (req, res) => {
+router.post('/last-days', requireApiKey, async (req, res) => {
   try {
     const days = Number(req.body?.days ?? 30);
     const status = (req.body?.status as string) || 'paid';
@@ -35,7 +35,7 @@ router.post('/last-days', optionalApiKey, async (req, res) => {
 
 // POST /api/ml/sync/inventory
 // Synchronize Mercado Livre inventory data
-router.post('/inventory', optionalApiKey, async (_req, res) => {
+router.post('/inventory', requireApiKey, async (_req, res) => {
   try {
     logger.info('🔄 Starting ML inventory sync via API endpoint...');
     const result = await mercadoLivreInventorySyncService.syncInventory();
