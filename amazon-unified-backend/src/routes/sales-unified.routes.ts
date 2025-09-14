@@ -129,25 +129,31 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
         ) sc ON true
       )
       SELECT 
-        asin,
-        sku,
-        title AS product,
-        COALESCE(NULLIF(marketplace_id,''), 'MLB') AS marketplace_id, -- default MLB for ML items without product match
-        units::numeric,
-        revenue::numeric,
-        CASE WHEN NULLIF(units,0) IS NULL THEN 0 ELSE (revenue / NULLIF(units,0)) END AS price,
-        stock,
-        seller_count,
-        buy_box_seller,
-        COALESCE(sc_compra, compra) AS compra,
-        COALESCE(sc_armazenagem, armazenagem) AS armazenagem,
-        COALESCE(sc_frete_amazon, frete_amazon) AS frete_amazon,
-        COALESCE(sc_custos_percentuais, custos_percentuais) AS custos_percentuais,
-        COALESCE(sc_imposto_percent, imposto_percent) AS imposto_percent,
-        COALESCE(sc_custo_variavel_percent, custo_variavel_percent) AS custo_variavel_percent,
-        COALESCE(sc_margem_contribuicao_percent, margem_contribuicao_percent) AS margem_contribuicao_percent,
-        COALESCE(sc_custos_manuais, custos_manuais) AS custos_manuais
-      FROM joined
+        j.asin,
+        j.sku,
+        j.title AS product,
+        COALESCE(NULLIF(j.marketplace_id,''), 'MLB') AS marketplace_id, -- default MLB for ML items without product match
+        j.units::numeric,
+        j.revenue::numeric,
+        CASE WHEN NULLIF(j.units,0) IS NULL THEN 0 ELSE (j.revenue / NULLIF(j.units,0)) END AS price,
+        j.stock,
+        j.seller_count,
+        j.buy_box_seller,
+        COALESCE(j.sc_compra, j.compra) AS compra,
+        COALESCE(j.sc_armazenagem, j.armazenagem) AS armazenagem,
+        COALESCE(j.sc_frete_amazon, j.frete_amazon) AS frete_amazon,
+        COALESCE(j.sc_custos_percentuais, j.custos_percentuais) AS custos_percentuais,
+        COALESCE(j.sc_imposto_percent, j.imposto_percent) AS imposto_percent,
+        COALESCE(j.sc_custo_variavel_percent, j.custo_variavel_percent) AS custo_variavel_percent,
+        COALESCE(j.sc_margem_contribuicao_percent, j.margem_contribuicao_percent) AS margem_contribuicao_percent,
+        COALESCE(j.sc_custos_manuais, j.custos_manuais) AS custos_manuais,
+        ml.item_id AS ml_item_id
+      FROM joined j
+      LEFT JOIN ml_inventory ml ON (
+        -- Map ML products: try both direct MLB match and SKU mapping
+        (ml.item_id = j.asin) OR
+        (j.marketplace_id = 'MLB' AND ml.seller_sku = j.sku)
+      )
       ORDER BY ${sortKey} ${dir}
       LIMIT $${values.length + 1} OFFSET $${values.length + 2}
     `;
@@ -158,7 +164,15 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
     // Transform rows to the same format used by sales-simple
     const rows = result.rows.map((row: any, index: number) => {
       const asin: string = row.asin || `item-${index}`;
-      const base64Id = Buffer.from(String(asin)).toString('base64');
+      
+      // For Mercado Livre products, use MLB item_id for images instead of custom SKU
+      let imageIdentifier = asin;
+      if (row.marketplace_id === 'MLB' && row.ml_item_id) {
+        // Use real MLB code from ml_inventory table for proper image fetching
+        imageIdentifier = row.ml_item_id;
+      }
+      
+      const base64Id = Buffer.from(String(imageIdentifier)).toString('base64');
       const imageUrl = `/app/product-images/${base64Id}.jpg`;
 
       const units = Number(row.units) || 0;
