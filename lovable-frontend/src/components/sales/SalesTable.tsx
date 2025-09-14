@@ -374,20 +374,24 @@ let marketplaceType: 'amazon' | 'mercadolivre' = 'amazon';
         const buyBox = row.original.buy_box_winner || 'Unknown';  // Real buy box winner
         const sellers = row.original.sellers || 1;  // Real seller count from database
         
-        // Generate product URL based on marketplace
-const getProductUrl = (asin: string, marketplace: string, marketplaceType: string) => {
-          // Basic external links per marketplace
+        // Generate product URL based on marketplace and product code
+        const getProductUrl = (productCode: string, marketplace: string, marketplaceType: string) => {
           if (marketplaceType === 'mercadolivre') {
-            // We may not have exact product URL; link to search by ID as fallback
-            return `https://www.mercadolivre.com.br/jm/search?as_word=${encodeURIComponent(asin)}`;
+            // For Mercado Livre, use direct product URL with MLB code
+            if (productCode && productCode.startsWith('MLB')) {
+              return `https://produto.mercadolivre.com.br/${productCode}`;
+            }
+            // Fallback to search if no MLB code
+            return `https://www.mercadolivre.com.br/jm/search?as_word=${encodeURIComponent(productCode)}`;
           }
           
+          // For Amazon, use ASIN-based URLs
           const baseUrls = {
             amazon: marketplace === 'brazil' ? 'https://amazon.com.br/dp/' : 'https://amazon.com/dp/',
             mercadolivre: 'https://mercadolivre.com.br/p/',
             shopee: 'https://shopee.com.br/product/'
           };
-          return baseUrls[marketplaceType as keyof typeof baseUrls] + asin;
+          return baseUrls[marketplaceType as keyof typeof baseUrls] + productCode;
         };
         
         return (
@@ -420,21 +424,32 @@ const getProductUrl = (asin: string, marketplace: string, marketplaceType: strin
                 <Badge variant="secondary" className="h-5 px-2 text-[10px]">Manual</Badge>
               ) : null}
               {/* Product code below the image - MLB for Mercado Livre, ASIN for Amazon */}
-              <a 
-                href={getProductUrl(row.original.asin, marketplace, marketplaceType)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-muted-foreground font-mono hover:text-foreground transition-colors text-center"
-              >
-                {(() => {
-                  if (marketplaceType === 'mercadolivre') {
-                    // Get MLB code from SKU mapping
-                    const mlbCode = getMLBFromSKU(row.original.sku || row.original.asin);
-                    return mlbCode || row.original.asin;
-                  }
-                  return row.original.asin; // Amazon: show ASIN
-                })()}
-              </a>
+              {(() => {
+                let productCode: string;
+                let displayCode: string;
+                
+                if (marketplaceType === 'mercadolivre') {
+                  // Get MLB code from SKU mapping
+                  const mlbCode = getMLBFromSKU(row.original.sku || row.original.asin);
+                  productCode = mlbCode || row.original.asin;
+                  displayCode = mlbCode || row.original.asin;
+                } else {
+                  // Amazon: use ASIN
+                  productCode = row.original.asin;
+                  displayCode = row.original.asin;
+                }
+                
+                return (
+                  <a 
+                    href={getProductUrl(productCode, marketplace, marketplaceType)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-muted-foreground font-mono hover:text-foreground transition-colors text-center"
+                  >
+                    {displayCode}
+                  </a>
+                );
+              })()}
             </div>
             
             <div className="min-w-0 flex-1">
