@@ -94,3 +94,4 @@ analyze_project.py
 # Windows reserved-name files (avoid Git-for-Windows artifacts)
 nul
 **/nul
+.mcp/*.json

@@ -18,7 +18,12 @@
     "update-images": "node update-product-images-job.js",
     "update-images:all": "node update-product-images-job.js --all",
     "scheduler:images": "node src/schedulers/image-update-scheduler.js",
-    "copilot:e2e": "node scripts/e2e/copilot.e2e.mjs"
+    "copilot:e2e": "node scripts/e2e/copilot.e2e.mjs",
+    "mcp:setup": "node ../.mcp/setup.js",
+    "mcp:token": "node ../.mcp/ml-token-helper.js",
+    "mcp:token:generate": "node ../.mcp/ml-token-helper.js generate",
+    "mcp:token:validate": "node ../.mcp/ml-token-helper.js validate",
+    "mcp:install": "npm install -g mcp-remote && npm run mcp:setup"
   },
   "keywords": [
     "amazon",
