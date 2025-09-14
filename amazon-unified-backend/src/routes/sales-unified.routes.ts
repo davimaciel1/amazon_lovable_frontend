@@ -262,52 +262,5 @@ router.post('/force-amazon-sync', async (_req: Request, res: Response) => {
   }
 });
 
-// TEMPORARY: Check ML inventory without API key (for verification)
-router.get('/check-ml-inventory', async (req: Request, res: Response) => {
-  try {
-    const { sku } = req.query;
-    console.log('🔍 [TEMP CHECK] Verificando estoque ML...', sku ? `para SKU: ${sku}` : 'todos os produtos');
-    
-    let query = `
-      SELECT 
-        item_id,
-        variation_id,
-        seller_sku,
-        title,
-        available_quantity,
-        status,
-        site_id,
-        updated_at
-      FROM ml_inventory 
-    `;
-    
-    const values: any[] = [];
-    if (sku) {
-      query += ' WHERE seller_sku = $1';
-      values.push(sku);
-    }
-    
-    query += ' ORDER BY seller_sku, variation_id';
-    
-    const result = await pool.query(query, values);
-    
-    console.log(`✅ [TEMP CHECK] Encontrados ${result.rows.length} registros ML`);
-    
-    res.json({
-      success: true,
-      message: sku ? `Estoque para SKU ${sku}` : 'Todos os produtos ML',
-      data: result.rows,
-      total: result.rows.length,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error: any) {
-    console.error('❌ [TEMP CHECK] Erro:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Falha ao verificar estoque ML',
-      details: error.message
-    });
-  }
-});
 
 export const salesUnifiedRouter = router;
