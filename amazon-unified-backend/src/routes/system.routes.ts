@@ -3,9 +3,10 @@ import path from 'path';
 import fs from 'fs';
 import { pool } from '../config/database';
 import { logger } from '../utils/logger';
-import { optionalApiKey } from '../middleware/apiKey.middleware';
+import { optionalApiKey, requireAuthOrApiKey } from '../middleware/apiKey.middleware';
 
 const router = express.Router();
+
 
 async function columnExists(table: string, column: string): Promise<boolean> {
   try {
@@ -262,6 +263,70 @@ router.post('/images/repair', async (req: Request, res: Response) => {
   } catch (e) {
     logger.error('Error in /system/images/repair', e);
     return res.status(500).json({ error: 'Failed to repair images' });
+  }
+});
+
+// DEPRECATED: Add logistic fields to ml_orders table
+// WARNING: This endpoint should be removed after migration is complete
+// TODO: Remove this endpoint in next version for security
+router.post('/db/add-logistic-fields', requireAuthOrApiKey, async (_req: Request, res: Response) => {
+  try {
+    logger.info('Starting ML orders logistic fields migration...');
+    
+    // Check if columns exist
+    const logisticTypeExists = await columnExists('ml_orders', 'logistic_type');
+    const logisticModeExists = await columnExists('ml_orders', 'logistic_mode');
+    
+    if (logisticTypeExists && logisticModeExists) {
+      return res.json({ 
+        ok: true, 
+        message: 'Columns already exist, no migration needed',
+        logistic_type_exists: logisticTypeExists,
+        logistic_mode_exists: logisticModeExists
+      });
+    }
+
+    await pool.query('BEGIN');
+
+    let addedColumns = [];
+
+    // Add columns if they don't exist
+    if (!logisticTypeExists) {
+      await pool.query('ALTER TABLE ml_orders ADD COLUMN logistic_type text');
+      logger.info('Added logistic_type column');
+      addedColumns.push('logistic_type');
+    }
+    
+    if (!logisticModeExists) {
+      await pool.query('ALTER TABLE ml_orders ADD COLUMN logistic_mode text');  
+      logger.info('Added logistic_mode column');
+      addedColumns.push('logistic_mode');
+    }
+
+    // Create index for better performance
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_ml_orders_logistic_type ON ml_orders(logistic_type)');
+    
+    // Add comments
+    await pool.query("COMMENT ON COLUMN ml_orders.logistic_type IS 'Mercado Livre logistic type: fulfillment (FULL), self_service (FLEX), etc'");
+    await pool.query("COMMENT ON COLUMN ml_orders.logistic_mode IS 'Mercado Livre logistic mode details from API'");
+
+    await pool.query('COMMIT');
+    
+    logger.info('ML orders logistic migration completed successfully');
+    
+    return res.json({ 
+      ok: true, 
+      message: 'Migration completed successfully',
+      added_columns: addedColumns
+    });
+    
+  } catch (error: any) {
+    await pool.query('ROLLBACK');
+    logger.error('ML orders logistic migration failed', { error: error.message });
+    return res.status(500).json({ 
+      ok: false, 
+      error: error.message 
+    });
   }
 });
 

@@ -122,12 +122,14 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
               END
             ELSE NULL
           END AS amazon_fulfillment,
-          -- Fulfillment information for Mercado Livre (based on shipping method)
+          -- Fulfillment information for Mercado Livre (enhanced detection with fallback)
           CASE 
             WHEN b.asin LIKE 'MLB%' OR COALESCE(NULLIF(p.marketplace_id,''), 'MLB') = 'MLB' THEN
               CASE 
-                WHEN mlo.shipping_id IS NOT NULL THEN 'FULL'
-                ELSE 'FLEX'
+                WHEN LOWER(mlo.logistic_type) = 'fulfillment' THEN 'FULL'
+                WHEN LOWER(mlo.logistic_type) = 'self_service' THEN 'FLEX'
+                WHEN LOWER(mlo.logistic_type) = 'drop_off' THEN 'FLEX'
+                ELSE 'OTHER'
               END
             ELSE NULL
           END AS ml_fulfillment
@@ -161,9 +163,9 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
           )
           LIMIT 1
         ) ord ON (b.asin NOT LIKE 'MLB%')
-        -- Join with ml_orders table to get ML shipping info (simplified)  
+        -- Join with ml_orders table to get ML logistic info (simplified)  
         LEFT JOIN LATERAL (
-          SELECT shipping_id
+          SELECT shipping_id, logistic_type, logistic_mode
           FROM ml_orders
           WHERE ml_order_id::text IN (
             SELECT DISTINCT order_id 

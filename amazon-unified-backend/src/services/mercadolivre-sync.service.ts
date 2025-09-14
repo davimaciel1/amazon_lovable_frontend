@@ -97,13 +97,47 @@ class MercadoLivreSyncService {
   }
 
   private mapOrderForDb(o: any) {
+    // Extract logistic information from shipping data
+    const shipping = o.shipping || {};
+    const logistic = shipping.logistic || {};
+    
+    // Determine fulfillment type based on ML API documentation
+    // FULL = meli_facility (fulfillment), FLEX = selling_address (self_service)
+    let fulfillmentType = 'OTHER';
+    
+    // Check tags for fulfillment indicators
+    const tags = Array.isArray(o.tags) ? o.tags : [];
+    const hasSelfServiceTag = tags.some((tag: any) => String(tag).toLowerCase().includes('self_service'));
+    const hasFulfillmentTag = tags.some((tag: any) => String(tag).toLowerCase().includes('fulfillment'));
+    
+    // Primary detection: Based on logistic type and tags
+    const logisticTypeStr = String(logistic.type || '').toLowerCase();
+    
+    if (logisticTypeStr === 'fulfillment' || hasFulfillmentTag) {
+      fulfillmentType = 'FULL';
+    } else if (logisticTypeStr === 'self_service' || hasSelfServiceTag || logisticTypeStr === 'drop_off') {
+      fulfillmentType = 'FLEX';
+    }
+    
+    // Secondary detection: Check shipping service information
+    if (fulfillmentType === 'OTHER' && shipping.service_id) {
+      // Service IDs can help identify fulfillment type
+      // This may need adjustment based on actual API responses
+      const serviceId = Number(shipping.service_id);
+      if (serviceId && serviceId > 0) {
+        // For now, default FLEX for active shipping services
+        // This needs refinement based on actual ML data
+        fulfillmentType = 'FLEX';
+      }
+    }
+    
     return {
       ml_order_id: o.id,
       seller_id: o.seller?.id ?? o.seller_id ?? null,
       buyer_id: o.buyer?.id ?? o.buyer_id ?? null,
       pack_id: o.pack_id ?? null,
       pickup_id: o.pickup_id ?? null,
-      shipping_id: o.shipping?.id ?? null,
+      shipping_id: shipping.id ?? null,
       site_id: o.site_id ?? o.context?.site ?? null,
       channel: o.context?.channel ?? null,
       status: o.status ?? null,
@@ -116,7 +150,10 @@ class MercadoLivreSyncService {
       date_created: o.date_created ?? null,
       date_closed: o.date_closed ?? null,
       last_updated: o.last_updated ?? null,
-      tags: Array.isArray(o.tags) ? o.tags : [],
+      tags: tags,
+      // Enhanced fulfillment detection
+      logistic_type: logisticTypeStr || null,
+      logistic_mode: logistic.mode ? String(logistic.mode).toLowerCase() : null,
       raw: o,
     };
   }
@@ -126,11 +163,11 @@ class MercadoLivreSyncService {
       INSERT INTO ml_orders (
         ml_order_id, seller_id, buyer_id, pack_id, pickup_id, shipping_id, site_id, channel,
         status, status_detail, total_amount, paid_amount, coupon_amount, currency_id, taxes_amount,
-        date_created, date_closed, last_updated, tags, raw, created_at, updated_at
+        date_created, date_closed, last_updated, tags, logistic_type, logistic_mode, raw, created_at, updated_at
       ) VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,
         $9,$10,$11,$12,$13,$14,$15,
-        $16,$17,$18,$19,$20,NOW(),NOW()
+        $16,$17,$18,$19,$20,$21,$22,NOW(),NOW()
       )
       ON CONFLICT (ml_order_id) DO UPDATE SET
         seller_id = EXCLUDED.seller_id,
@@ -151,6 +188,8 @@ class MercadoLivreSyncService {
         date_closed = EXCLUDED.date_closed,
         last_updated = EXCLUDED.last_updated,
         tags = EXCLUDED.tags,
+        logistic_type = EXCLUDED.logistic_type,
+        logistic_mode = EXCLUDED.logistic_mode,
         raw = EXCLUDED.raw,
         updated_at = NOW();
     `;
@@ -158,7 +197,7 @@ class MercadoLivreSyncService {
     const params = [
       m.ml_order_id, m.seller_id, m.buyer_id, m.pack_id, m.pickup_id, m.shipping_id, m.site_id, m.channel,
       m.status, m.status_detail, m.total_amount, m.paid_amount, m.coupon_amount, m.currency_id, m.taxes_amount,
-      m.date_created, m.date_closed, m.last_updated, m.tags, m.raw
+      m.date_created, m.date_closed, m.last_updated, m.tags, m.logistic_type, m.logistic_mode, m.raw
     ];
     await pool.query(q, params);
 
