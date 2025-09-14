@@ -692,4 +692,108 @@ router.post('/clear-nodecache-ipas01', requireAuthOrApiKey, async (_req: Request
   }
 });
 
+// Fix specific problematic ML products using MCP integration (protected)
+router.post('/fix-problematic-ml-images', requireAuthOrApiKey, async (_req: Request, res: Response) => {
+  try {
+    console.log('🔧 [ML SPECIFIC FIX] Iniciando correção de produtos problemáticos...');
+    
+    // Specific products we saw in the screenshots with "No Image Found"
+    const problematicASINs = [
+      'IPP-PV-04', 'IPP-PV-05', 'IPP-PV-02', 'IPAS04',  // From screenshots
+      'IPAS01'  // Force re-check on this one too
+    ];
+    
+    const results = [];
+    
+    for (const asin of problematicASINs) {
+      try {
+        console.log(`🔍 [ML SPECIFIC FIX] Processando ${asin}...`);
+        
+        // 1. Clear any existing image data
+        const updateResult = await pool.query(`
+          UPDATE products 
+          SET 
+            image_url = NULL,
+            image_source_url = NULL,
+            local_image_url = NULL,
+            image_last_checked_at = NOW(),
+            updated_at = NOW()
+          WHERE asin = $1 OR sku = $1
+          RETURNING asin, sku, title
+        `, [asin]);
+        
+        // 2. Clear cache for this product
+        const { imageCache } = await import('../routes/images.routes');
+        const encoded = Buffer.from(asin).toString('base64');
+        const cacheKeys = [`${encoded}_jpg`, `${encoded}_jpeg`, `${encoded}_png`, `${asin}_jpg`];
+        
+        if (imageCache && typeof imageCache.del === 'function') {
+          imageCache.del(cacheKeys);
+          console.log(`🧹 [ML SPECIFIC FIX] Cache limpo para ${asin}: ${cacheKeys.join(', ')}`);
+        }
+        
+        // 3. Force immediate regeneration by making a test request
+        try {
+          const axios = await import('axios');
+          const testResponse = await axios.default.get(
+            `http://localhost:8080/app/product-images/${encoded}.jpg`,
+            { timeout: 15000, maxRedirects: 5 }
+          );
+          
+          console.log(`✅ [ML SPECIFIC FIX] ${asin} regenerado: ${testResponse.status} - ${testResponse.headers['content-length']} bytes`);
+          
+          results.push({
+            asin: asin,
+            status: 'success',
+            action: 'Imagem limpa, cache removido e regenerada',
+            size: testResponse.headers['content-length'] || 'unknown',
+            response_status: testResponse.status,
+            updated_rows: updateResult.rowCount
+          });
+          
+        } catch (regenerationError: any) {
+          console.log(`⚠️ [ML SPECIFIC FIX] ${asin} limpeza OK, regeneração aguardando: ${regenerationError.message}`);
+          
+          results.push({
+            asin: asin,
+            status: 'cleaned',
+            action: 'Imagem limpa, cache removido - regeneração ocorrerá na próxima visualização',
+            updated_rows: updateResult.rowCount,
+            note: 'Sistema aguarda requisição do frontend para regenerar'
+          });
+        }
+        
+      } catch (error: any) {
+        console.error(`❌ [ML SPECIFIC FIX] Erro ao processar ${asin}:`, error);
+        results.push({
+          asin: asin,
+          status: 'error',
+          error: error.message
+        });
+      }
+    }
+    
+    return res.json({
+      success: true,
+      message: 'Correção específica de imagens ML executada!',
+      processed_products: problematicASINs,
+      results: results,
+      instructions: [
+        'Produtos problemáticos específicos processados',
+        'Cache NodeCache limpo para cada produto',
+        'Imagens serão regeneradas na próxima visualização',
+        'Recarregue o dashboard para ver as correções'
+      ]
+    });
+    
+  } catch (error: any) {
+    console.error('❌ [ML SPECIFIC FIX] Erro geral:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Falha na correção específica de imagens ML',
+      details: error.message
+    });
+  }
+});
+
 export const salesUnifiedRouter = router;

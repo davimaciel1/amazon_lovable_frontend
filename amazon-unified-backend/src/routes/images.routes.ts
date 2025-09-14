@@ -14,25 +14,27 @@ const imageCache = new NodeCache({ stdTTL: 604800 }); // 7 days cache
 
 // Decode Base64 product ID or return plain ID (supports multiple marketplaces)
 function decodeAsin(encodedId: string): string | null {
-  // First check if it's already a valid product ID (Amazon ASIN, Mercado Livre, or custom format)
-  if (/^[A-Z0-9-]{3,20}$/.test(encodedId)) {
-    return encodedId;
-  }
-  
-  // Try to decode from base64
+  // First, always try to decode from base64
   try {
     const decoded = Buffer.from(encodedId, 'base64').toString('utf-8');
-    // Validate product ID format - supports:
+    // Validate decoded product ID format - supports:
     // - Amazon ASINs: [A-Z0-9]{10} (e.g., B07XQXZXQX)
     // - Mercado Livre: MLB[0-9]+ (e.g., MLB4100879553)  
     // - Custom SKUs: [A-Z0-9-]+ (e.g., IPP-PV-02)
     if (/^[A-Z0-9-]{3,20}$/.test(decoded)) {
       return decoded;
     }
-    return null;
+    // If decoded string is invalid, fall through to check if original is already valid
   } catch {
-    return null;
+    // If base64 decode fails, fall through to check if original is already valid
   }
+  
+  // Fall back: check if it's already a valid product ID (not base64 encoded)
+  if (/^[A-Z0-9-]{3,20}$/.test(encodedId)) {
+    return encodedId;
+  }
+  
+  return null;
 }
 
 // Generate ETag from buffer
