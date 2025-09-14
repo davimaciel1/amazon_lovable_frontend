@@ -12,6 +12,22 @@ const imageCache = new NodeCache({ stdTTL: 604800 }); // 7 days cache
 
 // Use shared database pool
 
+// Mapping from custom SKUs to real MLB codes and their image URLs
+const ML_SKU_MAPPING: Record<string, {mlb: string, image: string}> = {
+  'IPP-PV-02': {
+    mlb: 'MLB4100879553',
+    image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-O.jpg'
+  },
+  'IPAS01': {
+    mlb: 'MLB3772801129', 
+    image: 'https://http2.mlstatic.com/D_775949-MLB77572311431_072024-O.jpg'
+  },
+  'IPAS04': {
+    mlb: 'MLB3458706470',
+    image: 'https://http2.mlstatic.com/D_745305-MLB74439298869_022024-F.jpg'
+  }
+};
+
 // Decode Base64 product ID or return plain ID (supports multiple marketplaces)
 function decodeAsin(encodedId: string): string | null {
   // First, always try to decode from base64
@@ -35,6 +51,12 @@ function decodeAsin(encodedId: string): string | null {
   }
   
   return null;
+}
+
+// Get real ML image URL for custom SKUs
+function getMercadoLivreImageUrl(sku: string): string | null {
+  const mapping = ML_SKU_MAPPING[sku];
+  return mapping ? mapping.image : null;
 }
 
 // Generate ETag from buffer
@@ -171,8 +193,15 @@ if (result.rows.length === 0) {
     let imageUrl = (product.image_source_url as string | null) || (product.image_url as string | null);
     console.log(`🔍 [IMAGE DEBUG] Final imageUrl for "${asin}": "${imageUrl}"`);
 
-    // If no image URL in DB, try known fallback mapping first
-if (!imageUrl || imageUrl === '') {
+    // Check if this is a custom SKU that maps to a Mercado Livre image
+    const mlImageUrl = getMercadoLivreImageUrl(asin);
+    if (mlImageUrl) {
+      console.log(`🔗 [ML IMAGE] Using mapped ML image for SKU "${asin}": ${mlImageUrl}`);
+      imageUrl = mlImageUrl;
+    }
+
+    // If no image URL in DB and no ML mapping, render placeholder
+    if (!imageUrl || imageUrl === '') {
       console.log(`❌ [IMAGE DEBUG] No valid imageUrl found, rendering placeholder for "${asin}"`);
       // No known image URL; render a local placeholder image (PNG/JPEG)
       const placeholder = await renderPlaceholder(format, asinUpper);
