@@ -289,10 +289,10 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
             }
           } else {
             // Relative paths: route through /app proxy so backend can dynamically fetch/placeholder when local file is missing
-            if (rawImageUrl.startsWith('/product-images/')) {
+            if (rawImageUrl.startsWith('/app/') || rawImageUrl.startsWith('/api/')) {
+              imageUrl = rawImageUrl; // already proxied paths - don't double-prefix!
+            } else if (rawImageUrl.startsWith('/product-images/')) {
               imageUrl = `/app${rawImageUrl}`;
-            } else if (rawImageUrl.startsWith('/app/') || rawImageUrl.startsWith('/api/')) {
-              imageUrl = rawImageUrl; // already proxied paths
             } else {
               // Any other relative path — prefix with backend origin as a fallback
               imageUrl = `${backendOrigin}${rawImageUrl.startsWith('/') ? '' : '/'}${rawImageUrl}`;
