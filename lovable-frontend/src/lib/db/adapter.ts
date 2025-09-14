@@ -460,13 +460,20 @@ export function debugSalesData(data: any, label: string = 'Sales Data') {
   if (data && typeof data === 'object') {
     // Check for nested data structures
     if (data.data) {
-      console.log('data.data keys:', Object.keys(data.data));
-      
-      // If data.data has numeric keys, show the first item
-      const dataKeys = Object.keys(data.data);
-      const hasNumericKeys = dataKeys.length > 0 && dataKeys.every(key => !isNaN(Number(key)));
-      if (hasNumericKeys && data.data['0']) {
-        console.log('data.data[0] sample:', data.data['0']);
+      if (Array.isArray(data.data)) {
+        console.log('data.data is array with length:', data.data.length);
+        if (data.data.length > 0) {
+          console.log('data.data[0] sample:', data.data[0]);
+        }
+      } else {
+        console.log('data.data keys:', Object.keys(data.data));
+        
+        // If data.data has numeric keys, show the first item
+        const dataKeys = Object.keys(data.data);
+        const hasNumericKeys = dataKeys.length > 0 && dataKeys.every(key => !isNaN(Number(key)));
+        if (hasNumericKeys && data.data['0']) {
+          console.log('data.data[0] sample:', data.data['0']);
+        }
       }
     }
     

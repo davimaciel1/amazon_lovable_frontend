@@ -107,10 +107,12 @@ export function getDateRangeFromPreset(preset: string): { from: string; to: stri
       };
     
     case 'yesterday':
-      const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+      // Use full day in UTC for yesterday from 00:00:00 to 23:59:59
+      const yesterdayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1));
+      const yesterdayEndUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1, 23, 59, 59, 999));
       return {
-        from: yesterday.toISOString(),
-        to: new Date(yesterday.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString(),
+        from: yesterdayUTC.toISOString(),
+        to: yesterdayEndUTC.toISOString(),
       };
     
     case '7days':
