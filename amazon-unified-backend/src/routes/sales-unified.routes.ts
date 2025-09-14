@@ -85,7 +85,11 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
           b.revenue,
           -- Join products only when ASIN matches (Amazon); ML may have no match
           p.marketplace_id,
-          COALESCE(p.inventory_quantity, mi.available_quantity) AS stock,
+          CASE 
+            WHEN b.asin LIKE 'MLB%' OR COALESCE(NULLIF(p.marketplace_id,''), 'MLB') = 'MLB' 
+            THEN mi.available_quantity 
+            ELSE COALESCE(p.inventory_quantity, mi.available_quantity) 
+          END AS stock,
           p.seller_count,
           p.buy_box_seller,
           p.compra,
@@ -108,11 +112,11 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
         FROM base b
         LEFT JOIN products p ON p.asin = b.asin
         LEFT JOIN (
-          SELECT seller_sku, SUM(available_quantity) AS available_quantity
+          SELECT seller_sku, title, SUM(available_quantity) AS available_quantity
           FROM ml_inventory 
           WHERE status = 'active' OR status IS NULL
-          GROUP BY seller_sku
-        ) mi ON mi.seller_sku = b.sku
+          GROUP BY seller_sku, title
+        ) mi ON (mi.seller_sku = b.sku OR mi.title ILIKE '%' || SUBSTRING(b.title FROM 1 FOR 30) || '%')
         LEFT JOIN LATERAL (
           SELECT c.*
           FROM sku_costs c
