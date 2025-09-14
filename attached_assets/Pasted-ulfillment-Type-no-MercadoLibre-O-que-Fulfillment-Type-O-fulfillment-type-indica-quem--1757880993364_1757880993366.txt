@@ -1,0 +1,93 @@
+ulfillment Type no MercadoLibre
+
+  O que é Fulfillment Type?
+
+  O fulfillment type indica quem é responsável pelo envio do produto e       
+  como ele será processado. É fundamental para entender a logística do       
+  pedido.
+
+  Onde encontrar o Fulfillment Type?
+
+  Na API de Orders do MercadoLibre, o fulfillment type aparece em:
+  - Campo principal: shipping.logistic_type
+  - Campo alternativo: order_items[].shipping.logistic_type
+  - Endpoint: GET /orders/{order_id} ou GET /orders/search
+
+  Valores possíveis do Fulfillment Type:
+
+  1. fulfillment (Mercado Envios Full)
+    - Produto está no centro de distribuição do ML
+    - ML é responsável pelo envio
+    - Entrega mais rápida
+    - Seller não precisa se preocupar com logística
+  2. cross_docking
+    - Produto sai do seller mas passa pelo CD do ML
+    - ML consolida e envia
+    - Híbrido entre fulfillment e self_service
+  3. self_service (Mercado Envios Flex)
+    - Seller envia o produto
+    - Usa etiqueta do Mercado Envios
+    - Seller responsável pela postagem
+  4. drop_off
+    - Seller leva o produto até ponto de coleta do ML
+    - ML pega do ponto e entrega
+  5. xd_drop_off (Cross Docking Drop Off)
+    - Combinação de cross_docking com drop_off
+    - Seller leva ao ponto, ML processa e entrega
+  6. not_specified ou null
+    - Envio por conta do seller
+    - Fora do Mercado Envios
+    - Acordo direto seller-comprador
+
+  Como obter essa informação:
+
+  // Exemplo de resposta da API de Orders
+  {
+    "id": 2000003508419013,
+    "status": "paid",
+    "shipping": {
+      "id": 40003456789,
+      "logistic_type": "fulfillment",  // <-- FULFILLMENT TYPE AQUI
+      "status": "ready_to_ship",
+      "substatus": "printed",
+      "receiver_address": {...}
+    },
+    "order_items": [
+      {
+        "item": {...},
+        "quantity": 1,
+        "unit_price": 100,
+        "full_unit_price": 100,
+        "shipping": {
+          "logistic_type": "fulfillment"  // <-- TAMBÉM PODE APARECER        
+  AQUI
+        }
+      }
+    ]
+  }
+
+  Informações adicionais relacionadas:
+
+  - shipping.status: Estado do envio (pending, handling, ready_to_ship,      
+  shipped, delivered)
+  - shipping.substatus: Detalhes do status (printed, dropped_off, in_hub,    
+   etc)
+  - shipping.shipping_mode: Modo de envio (me1, me2, custom,
+  not_specified)
+  - shipping.shipment_type: Tipo de remessa (fulfillment, cross_docking,     
+  etc)
+
+  Por que é importante?
+
+  1. Para o Seller: Define responsabilidades e ações necessárias
+  2. Para Relatórios: Análise de performance por tipo de fulfillment
+  3. Para Custos: Cada tipo tem estrutura de custos diferente
+  4. Para SLA: Prazos e responsabilidades variam por tipo
+
+  Endpoint específico para buscar pedidos por fulfillment:
+
+  GET
+  /orders/search?seller={seller_id}&shipping.logistic_type=fulfillment       
+
+  Isso permite filtrar apenas pedidos com um tipo específico de
+  fulfillment.

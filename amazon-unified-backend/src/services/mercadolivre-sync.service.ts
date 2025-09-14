@@ -42,11 +42,21 @@ class MercadoLivreSyncService {
   }
 
   private async refreshAccessToken(force = false): Promise<string> {
-    if (!force && this.accessToken && this.accessTokenExpiry && Date.now() < this.accessTokenExpiry) {
+    // ML tokens expire in 6 hours (10,800 seconds)
+    // Refresh proactively 30 minutes before expiry (5.5 hours = 19,800 seconds)
+    const BUFFER_SECONDS = 30 * 60; // 30 minutes buffer
+    
+    if (!force && this.accessToken && this.accessTokenExpiry && Date.now() < (this.accessTokenExpiry - BUFFER_SECONDS * 1000)) {
       return this.accessToken;
     }
 
     const { clientId, clientSecret, refreshToken } = await this.getCredentials();
+
+    logger.info('🔄 Refreshing ML access token proactively', { 
+      hasToken: !!this.accessToken,
+      expiresAt: this.accessTokenExpiry ? new Date(this.accessTokenExpiry).toISOString() : 'unknown',
+      forced: force
+    });
 
     const params = new URLSearchParams();
     params.set('grant_type', 'refresh_token');
@@ -57,22 +67,48 @@ class MercadoLivreSyncService {
     const resp = await axios.post('https://api.mercadolibre.com/oauth/token', params.toString(), {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       timeout: 15000,
+      validateStatus: (status) => status < 500, // Don't throw on 4xx errors
     });
+
+    if (resp.status === 400 || resp.status === 401) {
+      const errorData = resp.data || {};
+      logger.error('❌ ML token refresh failed - may need new OAuth flow', {
+        status: resp.status,
+        error: errorData.error,
+        message: errorData.message || errorData.error_description,
+      });
+      throw new Error(`ML OAuth error: ${errorData.error || 'invalid_grant'} - ${errorData.message || 'Token refresh failed'}`);
+    }
+
+    if (resp.status !== 200) {
+      throw new Error(`ML token refresh HTTP ${resp.status}: ${JSON.stringify(resp.data)}`);
+    }
 
     const data = resp.data || {};
     this.accessToken = data.access_token;
-    const expiresInSec = Number(data.expires_in || 0);
-    // cache token for a bit less than expires
-    this.accessTokenExpiry = Date.now() + Math.max(0, (expiresInSec - 60) * 1000);
+    const expiresInSec = Number(data.expires_in || 10800); // Default to 6 hours
+    
+    // ML tokens expire in exactly 6 hours - cache for 5.5 hours
+    this.accessTokenExpiry = Date.now() + Math.max(0, (expiresInSec - BUFFER_SECONDS) * 1000);
 
-    // If provider rotates refresh tokens, persist the new one
-    const newRefresh: string | undefined = (data as any).refresh_token;
-    if (newRefresh && newRefresh !== refreshToken) {
+    // IMPORTANT: ML uses single-use refresh tokens - ALWAYS store the new one
+    const newRefresh: string | undefined = data.refresh_token;
+    if (newRefresh) {
       await this.upsertCredential('ML_REFRESH_TOKEN', newRefresh);
+      logger.info('✅ ML refresh token updated (single-use pattern)');
+    } else if (!newRefresh && refreshToken) {
+      // Some ML responses don't include new refresh token - keep existing
+      logger.warn('⚠️ No new refresh token in response - keeping existing');
     }
-    // persist the latest access token and its expiry hint (optional)
+    
+    // Store new access token and expiry
     if (this.accessToken) await this.upsertCredential('ML_ACCESS_TOKEN', this.accessToken);
     if (expiresInSec) await this.upsertCredential('ML_ACCESS_TOKEN_EXPIRES_IN', String(expiresInSec));
+    
+    logger.info('✅ ML access token refreshed successfully', {
+      expiresInHours: (expiresInSec / 3600).toFixed(1),
+      nextRefreshAt: new Date(this.accessTokenExpiry!).toISOString()
+    });
 
     return this.accessToken!;
   }
@@ -151,9 +187,9 @@ class MercadoLivreSyncService {
       date_closed: o.date_closed ?? null,
       last_updated: o.last_updated ?? null,
       tags: tags,
-      // Enhanced fulfillment detection
-      logistic_type: logisticTypeStr || null,
-      logistic_mode: logistic.mode ? String(logistic.mode).toLowerCase() : null,
+      // Enhanced fulfillment detection - corrected field paths  
+      logistic_type: o.shipping?.logistic_type || logisticTypeStr || null,
+      logistic_mode: o.shipping?.mode || (logistic.mode ? String(logistic.mode).toLowerCase() : null),
       raw: o,
     };
   }

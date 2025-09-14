@@ -4,6 +4,31 @@ import { requireAuthOrApiKey } from '../middleware/apiKey.middleware';
 
 const router = Router();
 
+// Debug endpoint to inspect ML logistic types
+router.get('/debug-ml-logistics', requireAuthOrApiKey, async (_req: Request, res: Response) => {
+  try {
+    const query = `
+      SELECT 
+        COUNT(*) as total_ml_orders,
+        COUNT(CASE WHEN logistic_type IS NOT NULL THEN 1 END) as orders_with_logistic_type,
+        COUNT(CASE WHEN raw->'shipping'->'logistic' IS NOT NULL THEN 1 END) as orders_with_raw_shipping,
+        array_agg(DISTINCT logistic_type) FILTER (WHERE logistic_type IS NOT NULL) as logistic_types_found,
+        array_agg(DISTINCT logistic_mode) FILTER (WHERE logistic_mode IS NOT NULL) as logistic_modes_found,
+        array_agg(DISTINCT raw->'shipping'->'logistic'->>'type') FILTER (WHERE raw->'shipping'->'logistic'->>'type' IS NOT NULL) as raw_logistic_types
+      FROM ml_orders;
+    `;
+    
+    const result = await pool.query(query);
+    res.json({
+      message: 'ML Logistics Types Found',
+      data: result.rows
+    });
+  } catch (error) {
+    console.error('Error fetching ML logistics:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+  }
+});
+
 // GET /api/sales-unified
 // Query params:
 // - startDate, endDate (ISO). If endDate has no time, treat as inclusive end-of-day
