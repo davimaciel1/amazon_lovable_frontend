@@ -22,6 +22,7 @@ import { HealthBadge } from './HealthBadge';
 import { COGSModal } from './COGSModal';
 import { TrendingModal } from './TrendingModal';
 import { AddCostsModal } from './AddCostsModal';
+import { OrdersModal } from './OrdersModal';
 import { MarketplaceFlag } from './MarketplaceFlag';
 import { MarketplaceLogo } from './MarketplaceLogo';
 import { FulfillmentBadge } from './FulfillmentBadge';
@@ -258,6 +259,22 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
     title: '',
   });
 
+  const [ordersModal, setOrdersModal] = useState<{
+    isOpen: boolean;
+    asin: string;
+    sku?: string;
+    title: string;
+    marketplace?: 'brazil' | 'usa';
+    marketplaceId?: string;
+  }>({
+    isOpen: false,
+    asin: '',
+    sku: '',
+    title: '',
+    marketplace: 'usa',
+    marketplaceId: '',
+  });
+
   const openCOGSModal = (asin: string, sku?: string, title?: string) => {
     setCOGSModal({
       isOpen: true,
@@ -295,6 +312,21 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
 
   const closeAddCostsModal = () => {
     setAddCostsModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const openOrdersModal = (asin: string, sku?: string, title?: string, marketplace?: 'brazil' | 'usa', marketplaceId?: string) => {
+    setOrdersModal({
+      isOpen: true,
+      asin,
+      sku,
+      title: title || 'Product',
+      marketplace: marketplace || 'usa',
+      marketplaceId,
+    });
+  };
+
+  const closeOrdersModal = () => {
+    setOrdersModal(prev => ({ ...prev, isOpen: false }));
   };
 
   const columns = useMemo<ColumnDef<SalesRow>[]>(() => [
@@ -535,6 +567,54 @@ let marketplaceType: 'amazon' | 'mercadolivre' = 'amazon';
       enableSorting: false,
       size: 60,
     },
+    ...(columnVisibility.orders ? [{
+      id: 'orders',
+      header: () => <div className="text-center font-semibold">ORDERS</div>,
+      cell: ({ row }) => {
+        // Determine marketplace and type from the row data
+        const marketplaceId = row.original.marketplace_id || 'ATVPDKIKX0DER';
+        let marketplace: 'brazil' | 'usa';
+        
+        if (marketplaceId === 'ATVPDKIKX0DER') {
+          marketplace = 'usa';  // Amazon US
+        } else if (marketplaceId === 'A2Q3Y263D00KWC' || marketplaceId === 'MLB') {
+          marketplace = 'brazil';  // Amazon BR or Mercado Livre Brasil
+        } else {
+          marketplace = 'usa';  // Default to USA
+        }
+
+        return (
+          <div className="flex justify-center">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openOrdersModal(
+                      row.original.asin,
+                      row.original.sku,
+                      row.original.title,
+                      marketplace,
+                      marketplaceId
+                    )}
+                    className="h-8 px-2 hover:bg-primary/10 flex items-center gap-1"
+                  >
+                    <Layers className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-medium">{row.original.units || 0}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>View detailed orders ({row.original.units || 0} units sold)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        );
+      },
+      enableSorting: false,
+      size: 80,
+    }] : []),
     {
       id: 'sku',
       accessorKey: 'sku',
@@ -1229,6 +1309,16 @@ let marketplaceType: 'amazon' | 'mercadolivre' = 'amazon';
           // Refresh the data after saving costs
           window.location.reload();
         }}
+      />
+
+      <OrdersModal
+        isOpen={ordersModal.isOpen}
+        onClose={closeOrdersModal}
+        asin={ordersModal.asin}
+        sku={ordersModal.sku}
+        productTitle={ordersModal.title}
+        marketplace={ordersModal.marketplace}
+        marketplaceId={ordersModal.marketplaceId}
       />
     </>
   );

@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware';
 export type ColumnVisibility = {
   cogs: boolean;
   trending: boolean;
+  orders: boolean;
   sku: boolean;
   health: boolean;
   units: boolean;
@@ -38,6 +39,7 @@ type SalesStore = {
 const defaultColumnVisibility: ColumnVisibility = {
   cogs: true,
   trending: true,
+  orders: true,
   sku: true,
   health: true,
   units: true,

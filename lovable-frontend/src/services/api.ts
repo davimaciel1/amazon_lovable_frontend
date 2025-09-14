@@ -215,6 +215,20 @@ const endpoint = params?.channel && params.channel !== 'amazon' ? '/sales-unifie
   async getBrands(): Promise<ApiResponse<{ value: string; label: string; count: number }[]>> {
     return this.request('/products/brands');
   }
+
+  // Detailed orders methods
+  async getDetailedOrders(params?: {
+    page?: number;
+    limit?: number;
+    startDate?: string;
+    endDate?: string;
+    channel?: 'all' | 'amazon' | 'mercadolivre';
+    status?: string;
+    search?: string;
+  }): Promise<ApiResponse> {
+    const queryString = new URLSearchParams(params as any).toString();
+    return this.request(`/orders-detailed${queryString ? `?${queryString}` : ''}`);
+  }
 }
 
 export const api = new ApiService();
