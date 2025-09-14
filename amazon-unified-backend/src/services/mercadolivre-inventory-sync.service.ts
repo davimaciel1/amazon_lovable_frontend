@@ -315,6 +315,90 @@ class MercadoLivreInventorySyncService {
   }
 
   /**
+   * Debug stock for a specific product SKU
+   */
+  async debugProductStock(sku: string): Promise<any> {
+    try {
+      logger.info(`🔍 [DEBUG] Starting debug for SKU: ${sku}`);
+      
+      // Step 1: Get access token
+      await this.refreshAccessToken();
+      
+      if (!this.accessToken) {
+        throw new Error('Failed to get access token');
+      }
+      
+      // Step 2: Use existing method to get all items
+      const items = await this.fetchSellerItems('1594689639', this.accessToken);
+      logger.info(`🔍 [DEBUG] Found ${items.length} items for seller`);
+      
+      // Step 3: Get details for each item to find the one matching our SKU
+      let matchedItem: any = null;
+      
+      for (const itemId of items) {
+        try {
+          const response = await fetch(`https://api.mercadolibre.com/items/${itemId}`, {
+            headers: { 'Authorization': `Bearer ${this.accessToken}` }
+          });
+          
+          if (response.status !== 200) {
+            logger.warn(`🔍 [DEBUG] Failed to get item ${itemId}: ${response.status}`);
+            continue;
+          }
+          
+          const itemDetail: any = await response.json();
+          
+          // Check if this item matches our SKU
+          const itemSku = itemDetail.seller_custom_field || itemDetail.sku || itemDetail.id;
+          if (itemSku === sku || itemDetail.title?.includes(sku)) {
+            matchedItem = itemDetail;
+            logger.info(`🔍 [DEBUG] FOUND MATCHING ITEM: ${itemId} for SKU ${sku}`);
+            break;
+          }
+        } catch (error) {
+          logger.warn(`🔍 [DEBUG] Error getting details for item ${itemId}:`, error);
+        }
+      }
+      
+      if (!matchedItem) {
+        logger.warn(`🔍 [DEBUG] No item found for SKU ${sku}`);
+        return {
+          found: false,
+          message: `No item found for SKU ${sku}`,
+          searchedItems: items.length
+        };
+      }
+      
+      // Step 4: Get stock using existing method
+      const userProductId = matchedItem.id;
+      logger.info(`🔍 [DEBUG] Getting stock for user_product_id: ${userProductId}`);
+      
+      const stockResult = await this.getUserProductStock(userProductId, this.accessToken);
+      logger.info(`🔍 [DEBUG] Stock result:`, stockResult);
+      
+      return {
+        found: true,
+        item: {
+          id: matchedItem.id,
+          title: matchedItem.title,
+          sku: matchedItem.seller_custom_field || matchedItem.sku,
+          status: matchedItem.status
+        },
+        stockResult,
+        userProductId
+      };
+      
+    } catch (error: any) {
+      logger.error(`🔍 [DEBUG] Error debugging product ${sku}:`, error);
+      return {
+        found: false,
+        error: error.message,
+        sku
+      };
+    }
+  }
+
+  /**
    * Parse stock data with robust validation - CRITICAL: Returns success=false when no valid nodes
    */
   private parseStockData(stockData: any): { success: boolean; quantity: number; error?: string } {
@@ -346,25 +430,45 @@ class MercadoLivreInventorySyncService {
         return { success: false, quantity: 0, error: 'Invalid stock data format' };
       }
       
-      // Sum all valid stock nodes (prioritize meli_facility but accept others)
+      // Sum all valid stock nodes (prioritize FULL nodes but accept others)
       let totalStock = 0;
       let validNodesFound = 0;
-      let hasMeliFacility = false;
+      let hasFullNodes = false;
+      
+      // FULL node type aliases
+      const fullNodeTypes = ['meli_facility', 'fulfillment', 'meli_fulfillment', 'ml_full'];
       
       for (const node of stockNodes) {
         if (node && typeof node === 'object') {
-          // Support multiple quantity field variants
-          const quantityValue = node.quantity ?? node.available ?? node.available_quantity;
+          let quantityValue = null;
+          
+          // Extract quantity - support nested quantity objects
+          if (typeof node.quantity === 'number' && !isNaN(node.quantity)) {
+            quantityValue = node.quantity;
+          } else if (node.quantity && typeof node.quantity === 'object') {
+            // Handle nested quantity objects (typical for FULL)
+            quantityValue = node.quantity.available ?? 
+                           node.quantity.for_sale ?? 
+                           node.quantity.sellable ?? 
+                           node.quantity.quantity;
+          } else {
+            // Fallback to direct fields
+            quantityValue = node.available ?? node.available_quantity;
+          }
           
           if (typeof quantityValue === 'number' && !isNaN(quantityValue)) {
-            if (node.type === 'meli_facility') {
-              hasMeliFacility = true;
+            const isFullNode = fullNodeTypes.includes(node.type);
+            
+            if (isFullNode) {
+              hasFullNodes = true;
               totalStock += Math.max(0, quantityValue); // Ensure non-negative
               validNodesFound++;
-            } else if (!hasMeliFacility) {
-              // Only count non-meli_facility if no meli_facility found
+              logger.debug(`FULL node found: type=${node.type}, quantity=${quantityValue}`);
+            } else if (!hasFullNodes) {
+              // Only count non-FULL if no FULL nodes found
               totalStock += Math.max(0, quantityValue);
               validNodesFound++;
+              logger.debug(`Non-FULL node: type=${node.type}, quantity=${quantityValue}`);
             }
           }
         }
@@ -420,7 +524,17 @@ class MercadoLivreInventorySyncService {
         return resp.data;
       }, context);
       
+      // Debug logging for IPAS04
+      if (userProductId.includes('IPAS04') || context.includes('IPAS04')) {
+        logger.info(`[DEBUG IPAS04] Raw API response for ${userProductId}:`, JSON.stringify(result, null, 2));
+      }
+      
       const parseResult = this.parseStockData(result);
+      
+      // Debug logging for IPAS04
+      if (userProductId.includes('IPAS04') || context.includes('IPAS04')) {
+        logger.info(`[DEBUG IPAS04] Parse result for ${userProductId}:`, parseResult);
+      }
       
       if (!parseResult.success) {
         logger.warn(`${context}: ${parseResult.error}`);
