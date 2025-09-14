@@ -331,6 +331,24 @@ try {
     } catch (e) {
       logger.warn('Failed to initialize ML nightly backfill schedule', e);
     }
+
+    // ML Inventory sync every 30 minutes (configurable)
+    try {
+      const mlInventoryCron = process.env.ML_INVENTORY_SYNC_CRON || '*/30 * * * *';
+      cron.schedule(mlInventoryCron, async () => {
+        try {
+          logger.info('[CRON] Running ML inventory sync...');
+          const { mercadoLivreInventorySyncService } = await import('./services/mercadolivre-inventory-sync.service');
+          const result = await mercadoLivreInventorySyncService.syncInventory();
+          logger.info(`[CRON] ML inventory sync completed: ${result.synced}/${result.total} items`);
+        } catch (e) {
+          logger.error('[CRON] ML inventory sync job failed', e);
+        }
+      });
+      logger.info(`[CRON] ML inventory sync schedule initialized (${mlInventoryCron})`);
+    } catch (e) {
+      logger.warn('Failed to initialize ML inventory sync schedule', e);
+    }
   } else {
     logger.info('[CRON] Schedules disabled by DISABLE_SCHEDULES=true');
   }
