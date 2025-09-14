@@ -54,7 +54,7 @@ export function FulfillmentBadge({ fulfillmentType, className = "" }: Fulfillmen
   
   return (
     <span 
-      className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold ${badgeClass} ${className}`}
+      className={`inline-flex items-center px-2 h-4 rounded text-xs font-bold ${badgeClass} ${className}`}
       title={`Fulfillment: ${text}`}
     >
       {text}

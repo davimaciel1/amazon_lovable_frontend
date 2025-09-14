@@ -64,6 +64,9 @@ const salesRowSchema = z.object({
   stock: z.union([z.number(), z.string()]).nullable().optional(),
   buy_box_winner: z.union([z.string(), z.boolean()]).nullable().optional(),
   sellers: z.union([z.number(), z.string()]).nullable().optional(),
+  
+  // Fulfillment type
+  fulfillment_type: z.string().optional(),
 }).passthrough(); // Allow additional fields to pass through
 
 export type SalesParams = {
@@ -114,6 +117,7 @@ export type SalesRow = {
   sellers?: number | null;
   marketplace_id?: string;
   costs?: SalesCosts;
+  fulfillment_type?: string;
 };
 
 export type SalesResponse = {
@@ -229,6 +233,9 @@ function normalizeSalesRow(raw: any): SalesRow {
   // Extract marketplace
   const marketplace_id = parsed.marketplace_id || parsed.marketplaceId || undefined;
   
+  // Extract fulfillment type
+  const fulfillment_type = parsed.fulfillment_type || undefined;
+  
   const costs: SalesCosts | undefined = (
     parsed.compra !== undefined || parsed.custos_manuais !== undefined || parsed.costs
   ) ? {
@@ -260,6 +267,7 @@ function normalizeSalesRow(raw: any): SalesRow {
     sellers: parsed.sellers !== undefined ? Number(parsed.sellers) : null,
     marketplace_id,
     costs,
+    fulfillment_type,
   };
 }
 
