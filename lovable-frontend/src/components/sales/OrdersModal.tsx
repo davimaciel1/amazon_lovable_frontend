@@ -214,6 +214,8 @@ export function OrdersModal({
   };
 
   const getStatusColor = (status: string) => {
+    if (!status) return 'bg-gray-100 text-gray-800';
+    
     switch (status.toLowerCase()) {
       case 'shipped':
       case 'delivered':
@@ -433,7 +435,7 @@ export function OrdersModal({
                             <div className="flex items-center gap-2 text-sm">
                               <DollarSign className="h-4 w-4 text-green-600" />
                               <span className="font-semibold text-green-600">
-                                {formatCurrency(order.order_total, order.currency)}
+                                {formatCurrency(order.order_total)}
                               </span>
                             </div>
 
@@ -506,10 +508,10 @@ export function OrdersModal({
                                   </div>
                                   <div className="text-right">
                                     <div className="font-medium">
-                                      {item.quantity}x {formatCurrency(item.unitPrice, order.currency)}
+                                      {item.quantity}x {formatCurrency(item.unitPrice)}
                                     </div>
                                     <div className="text-sm text-muted-foreground">
-                                      Total: {formatCurrency(item.totalPrice, order.currency)}
+                                      Total: {formatCurrency(item.totalPrice)}
                                     </div>
                                   </div>
                                 </div>
