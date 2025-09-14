@@ -41,9 +41,9 @@ import {
 function getMLBFromSKU(skuOrAsin?: string): string | null {
   if (!skuOrAsin) return null;
   
-  // Mapping table for known SKUs to MLB codes
+  // Mapping table for known SKUs to MLB codes - CORRECTED
   const MLB_MAP: Record<string, string> = {
-    'IPAS01': 'MLB5677833500',
+    'IPAS01': 'MLBU3406999311', // CORRECTED: was MLB5677833500
     'IPAS04': 'MLB5321963088',
     'IPP-PV-02': 'MLB5308377982'
   };

@@ -12,10 +12,10 @@ const imageCache = new NodeCache({ stdTTL: 604800 }); // 7 days cache
 
 // Use shared database pool
 
-// Mapping from custom SKUs to real MLB codes and their image URLs
+// Mapping from custom SKUs to real MLB codes and their image URLs - CORRECTED
 const ML_SKU_MAPPING: Record<string, {mlb: string, image: string}> = {
   'IPAS01': {
-    mlb: 'MLB5677833500',
+    mlb: 'MLBU3406999311', // CORRECTED: was MLB5677833500
     image: 'https://http2.mlstatic.com/D_746268-MLB91917127844_092025-O.jpg'
   },
   'IPAS04': {
