@@ -4,8 +4,15 @@ type FulfillmentBadgeProps = {
 };
 
 export function FulfillmentBadge({ fulfillmentType, className = "" }: FulfillmentBadgeProps) {
+  console.log('🟢 FulfillmentBadge RENDERING with fulfillmentType:', fulfillmentType);
+  
+  // Sempre mostrar um badge para depuração
   if (!fulfillmentType) {
-    return null;
+    return (
+      <span className="inline-flex items-center px-2 py-1 bg-red-500 text-white text-xs font-bold rounded">
+        NULL
+      </span>
+    );
   }
 
   const getBadgeStyles = () => {
@@ -13,32 +20,32 @@ export function FulfillmentBadge({ fulfillmentType, className = "" }: Fulfillmen
       case 'FBA':
         return {
           text: 'FBA',
-          className: 'bg-blue-100 text-blue-800 border-blue-200'
+          className: 'bg-blue-500 text-white border-blue-600'
         };
       case 'DBA':
         return {
           text: 'DBA', 
-          className: 'bg-orange-100 text-orange-800 border-orange-200'
+          className: 'bg-orange-500 text-white border-orange-600'
         };
       case 'FULL':
         return {
           text: 'FULL',
-          className: 'bg-green-100 text-green-800 border-green-200'
+          className: 'bg-green-500 text-white border-green-600'
         };
       case 'FLEX':
         return {
           text: 'FLEX',
-          className: 'bg-purple-100 text-purple-800 border-purple-200'
+          className: 'bg-purple-500 text-white border-purple-600'
         };
       case 'OTHER':
         return {
           text: 'OTHER',
-          className: 'bg-gray-100 text-gray-800 border-gray-200'
+          className: 'bg-gray-500 text-white border-gray-600'
         };
       default:
         return {
           text: fulfillmentType.toUpperCase(),
-          className: 'bg-gray-100 text-gray-800 border-gray-200'
+          className: 'bg-yellow-500 text-black border-yellow-600'
         };
     }
   };
@@ -47,7 +54,7 @@ export function FulfillmentBadge({ fulfillmentType, className = "" }: Fulfillmen
   
   return (
     <span 
-      className={`inline-flex items-center px-1.5 py-0.5 rounded-sm text-xs font-medium border ${badgeClass} ${className}`}
+      className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold ${badgeClass} ${className}`}
       title={`Fulfillment: ${text}`}
     >
       {text}
