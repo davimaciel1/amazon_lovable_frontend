@@ -285,6 +285,7 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
         image_url: imageUrl,
         imageUrl: imageUrl,
         marketplace_id: row.marketplace_id || 'MLB',
+        marketplace_code: row.marketplace_id || 'MLB', // Add marketplace_code for frontend compatibility
         units,
         revenue,
         orders: 0, // not available from unified view
