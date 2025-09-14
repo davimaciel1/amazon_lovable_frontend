@@ -55,31 +55,6 @@ router.post('/inventory', optionalApiKey, async (_req, res) => {
   }
 });
 
-// POST /api/ml/sync/debug-product
-// Debug specific product stock from Mercado Livre
-router.post('/debug-product', optionalApiKey, async (req, res) => {
-  try {
-    const { sku } = req.body;
-    if (!sku) {
-      return res.status(400).json({ ok: false, error: 'SKU é obrigatório' });
-    }
-    
-    logger.info(`🔍 Debug: Verificando estoque do produto ${sku} no Mercado Livre...`);
-    const result = await mercadoLivreInventorySyncService.debugProductStock(sku);
-    
-    return res.json({ 
-      ok: true, 
-      sku,
-      result
-    });
-  } catch (e: any) {
-    logger.error('ML debug product error', e);
-    return res.status(500).json({ 
-      ok: false, 
-      error: e.message || 'Debug failed' 
-    });
-  }
-});
 
 export const mlSyncRouter = router;
 
