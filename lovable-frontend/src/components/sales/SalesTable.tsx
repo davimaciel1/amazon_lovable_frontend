@@ -377,9 +377,9 @@ let marketplaceType: 'amazon' | 'mercadolivre' = 'amazon';
         // Generate product URL based on marketplace and product code
         const getProductUrl = (productCode: string, marketplace: string, marketplaceType: string) => {
           if (marketplaceType === 'mercadolivre') {
-            // For Mercado Livre, use direct product URL with MLB code
+            // For Mercado Livre, use correct URL syntax: https://www.mercadolivre.com.br/up/MLB
             if (productCode && productCode.startsWith('MLB')) {
-              return `https://produto.mercadolivre.com.br/${productCode}`;
+              return `https://www.mercadolivre.com.br/up/${productCode}`;
             }
             // Fallback to search if no MLB code
             return `https://www.mercadolivre.com.br/jm/search?as_word=${encodeURIComponent(productCode)}`;
