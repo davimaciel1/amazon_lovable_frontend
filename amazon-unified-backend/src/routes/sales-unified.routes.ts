@@ -4,6 +4,7 @@ import { requireAuthOrApiKey } from '../middleware/apiKey.middleware';
 
 const router = Router();
 
+
 // Debug endpoint to inspect ML logistic types
 router.get('/debug-ml-logistics', requireAuthOrApiKey, async (_req: Request, res: Response) => {
   try {
@@ -163,11 +164,11 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
         FROM base b
         LEFT JOIN products p ON p.asin = b.asin
         LEFT JOIN (
-          SELECT seller_sku, title, SUM(available_quantity) AS available_quantity
+          SELECT seller_sku, SUM(available_quantity) AS available_quantity
           FROM ml_inventory 
           WHERE status = 'active' OR status IS NULL
-          GROUP BY seller_sku, title
-        ) mi ON (mi.seller_sku = b.sku OR mi.title ILIKE '%' || SUBSTRING(b.title FROM 1 FOR 30) || '%')
+          GROUP BY seller_sku
+        ) mi ON mi.seller_sku = b.sku
         LEFT JOIN LATERAL (
           SELECT c.*
           FROM sku_costs c
@@ -240,9 +241,8 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
         COALESCE(j.amazon_fulfillment, j.ml_fulfillment) AS fulfillment_type
       FROM joined j
       LEFT JOIN ml_inventory ml ON (
-        -- Map ML products: try both direct MLB match and SKU mapping
-        (ml.item_id = j.asin) OR
-        (j.marketplace_id = 'MLB' AND ml.seller_sku = j.sku)
+        -- Use SKU mapping for ML products  
+        j.marketplace_id = 'MLB' AND ml.seller_sku = j.sku
       )
       ORDER BY ${sortKey} ${dir}
       LIMIT $${values.length + 1} OFFSET $${values.length + 2}
