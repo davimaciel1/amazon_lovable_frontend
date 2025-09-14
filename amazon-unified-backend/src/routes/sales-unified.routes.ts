@@ -36,7 +36,9 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
     const endTs = endParamRaw ? new Date(endParamRaw) : new Date();
     const startTs = startParamRaw ? new Date(startParamRaw) : new Date(endTs.getTime() - 30 * 24 * 60 * 60 * 1000);
 
+    // Check if endDate has time component but is exactly 00:00:00 (treat as date-only)
     const endHasTime = !!(endParamRaw && endParamRaw.includes('T'));
+    const endIsStartOfDay = endHasTime && endTs.getUTCHours() === 0 && endTs.getUTCMinutes() === 0 && endTs.getUTCSeconds() === 0 && endTs.getUTCMilliseconds() === 0;
 
     const pageNum = Math.max(parseInt(String(page)) || 1, 1);
     const limitNum = Math.min(Math.max(parseInt(String(limit)) || 50, 1), 200);
@@ -48,7 +50,8 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
 
     // Build base filters
     const values: any[] = [startTs.toISOString(), endTs.toISOString()];
-    let where = endHasTime
+    // Fix date filter: treat endDate with 00:00:00 time as date-only (include full day)
+    let where = (endHasTime && !endIsStartOfDay)
       ? `purchase_date >= $1::timestamptz AND purchase_date <= $2::timestamptz`
       : `purchase_date >= $1::timestamptz AND purchase_date < ($2::timestamptz + interval '1 day')`;
 
