@@ -398,6 +398,14 @@ router.get('/', clerkAuth, async (req, res) => {
       })) : []
     }));
 
+    // Calculate summary metrics from the orders
+    const summary = {
+      total_orders: orders.length,
+      total_revenue: orders.reduce((sum, order) => sum + order.orderTotal, 0),
+      amazon_orders: orders.filter(order => order.marketplace === 'amazon').length,
+      ml_orders: orders.filter(order => order.marketplace === 'mercadolivre').length
+    };
+
     return res.json({
       orders,
       pagination: {
@@ -406,6 +414,7 @@ router.get('/', clerkAuth, async (req, res) => {
         total: totalItems,
         totalPages
       },
+      summary,
       filters: {
         channel,
         startDate: startDate || null,
