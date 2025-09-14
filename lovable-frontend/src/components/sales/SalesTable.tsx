@@ -139,6 +139,7 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
           roi: null as number | null,
           acos: null as number | null,
           health: r.health ?? null,
+          fulfillment_type: r.fulfillment_type ?? null,
         } as SalesRow & { _revW?: number });
 
       const units = Number(r.units ?? r.quantity ?? 0);
@@ -175,6 +176,7 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
       if (!curr.marketplace_id && marketplaceId)
         curr.marketplace_id = marketplaceId;
       if (r.health) curr.health = r.health;
+      if (r.fulfillment_type && !curr.fulfillment_type) curr.fulfillment_type = r.fulfillment_type;
 
       map.set(key, curr);
     }
