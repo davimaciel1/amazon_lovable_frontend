@@ -48,6 +48,7 @@ import { mlWebhooksRouter } from './routes/ml.webhooks.routes';
 import { mlBidirectionalSyncRouter } from './routes/ml.bidirectional-sync.routes';
 import { costsRouter } from './routes/costs.routes';
 import mlImagesRouter from './routes/ml-images.routes';
+import dataIntegrityRouter from './routes/data-integrity.routes';
 
 let salesSimpleRouter: any;
 try {
@@ -254,6 +255,7 @@ app.use('/api/copilotkit', copilotKitRouter);  // CopilotKit endpoint
 app.use('/app', imagesRouter);  // Image proxy endpoint
 app.use('/', imagesRouter);  // Image proxy endpoint (direct access)
 app.use('/api/analytics', analyticsRouter);     // Analytics endpoints for tables
+app.use('/api/data-integrity', dataIntegrityRouter); // Data integrity service endpoints
 // app.use('/api/campaigns', campaignsRouter);
 
 // Scheduled jobs for data integrity and freshness
