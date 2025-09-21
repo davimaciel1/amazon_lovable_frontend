@@ -43,11 +43,14 @@ import {
 function getMLBFromSKU(skuOrAsin?: string): string | null {
   if (!skuOrAsin) return null;
   
-  // Mapping table for known SKUs to MLB codes - CORRECTED
+  // Mapping table for known SKUs to MLB codes - UPDATED WITH CORRECT MAPPINGS
   const MLB_MAP: Record<string, string> = {
-    'IPAS01': 'MLBU3406999311', // CORRECTED: was MLB5677833500
-    'IPAS04': 'MLB5321963088',
-    'IPP-PV-02': 'MLB5308377982'
+    'IPAS01': 'MLBU3406999311', // Arame Solda Mig Tubular 0.8mm 1kg
+    'IPAS02': 'MLB5321963088',  // Eletrodo 6013 2.5mm 5kg
+    'IPAS04': 'MLB5321963088',  // Arame Solda Mig Er70s-6 0.8mm 5kg
+    'IPP-PV-02': 'MLB5308377982', // Piso Vinílico
+    'IPP-PV-04': 'MLB5649952004', // Piso Vinílico Autocolante
+    'IPP-PV-05': 'MLB4100879553'  // Piso Vinílico Autocolante
   };
   
   // Check direct mapping first
