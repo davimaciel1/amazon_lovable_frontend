@@ -373,16 +373,9 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
           } catch {}
         }
         
-        // Cache-bust: Add timestamp to force reload and avoid cache issues
-        if (imageUrl && !imageUrl.includes('?')) {
-          imageUrl = `${imageUrl}?t=${Date.now()}`;
-        }
-        
-        // Debug: Log image URL to see what we're getting
+        // Debug: Log image URL to see what we're getting (only when missing)
         if (row.original.asin && !imageUrl) {
           console.warn(`No image URL for ASIN ${row.original.asin}:`, row.original);
-        } else if (imageUrl) {
-          console.log(`Image URL for ${row.original.asin}:`, imageUrl);
         }
         
         // Determine marketplace based on real marketplace_id from database
