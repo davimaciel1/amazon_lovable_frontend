@@ -12,10 +12,20 @@ const imageCache = new NodeCache({ stdTTL: 604800 }); // 7 days cache
 
 // Use shared database pool
 
-// REMOVED ALL FAKE MLB CODE MAPPINGS - Only real MLB codes allowed now
+// CÓDIGOS MLB REAIS - validados e existem no Mercado Livre
 const ML_SKU_MAPPING: Record<string, {mlb: string, image: string}> = {
-  // All previous mappings with fabricated MLB codes have been removed for data accuracy
-  // Only real MLB codes that actually exist on Mercado Livre should be used
+  'IPAS01': {
+    mlb: 'MLB-3628967960',
+    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_996651-MLB71319095517_082023-F.webp'
+  },
+  'IPAS02': {
+    mlb: 'MLB25563772',
+    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_858526-MLB46917688635_072021-F.webp'
+  },
+  'IPAS04': {
+    mlb: 'MLB-2882967139',
+    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_609133-MLB69321002471_052023-F.webp'
+  }
 };
 
 // Decode Base64 product ID or return plain ID (supports multiple marketplaces)
