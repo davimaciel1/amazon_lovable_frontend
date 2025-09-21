@@ -26,9 +26,10 @@ const ML_PRODUCT_MAPPINGS: Record<string, { mlb: string; title: string; image: s
   'MLB3772801129': { mlb: 'MLB3772801129', title: 'Porus One', image: 'https://http2.mlstatic.com/D_775949-MLB77572311431_072024-F.jpg' },
   'MLB5649953084': { mlb: 'MLB5649953084', title: 'Porus One', image: 'https://http2.mlstatic.com/D_980841-MLA91448905807_092025-F.jpg' },
   
-  // IPAS codes - real welding wire products
-  'IPAS01': { mlb: 'MLB3458706470', title: 'Arame Solda Mig', image: 'https://http2.mlstatic.com/D_745305-MLB74439298869_022024-F.jpg' },
-  'IPAS04': { mlb: 'MLB3458706470', title: 'Arame Solda Mig', image: 'https://http2.mlstatic.com/D_745305-MLB74439298869_022024-F.jpg' }
+  // IPAS codes - real welding wire products (CORRECTED to match frontend)
+  'IPAS01': { mlb: 'MLBU3406999311', title: 'Arame Solda Mig Tubular 0.8mm 1kg', image: 'https://http2.mlstatic.com/D_746268-MLB91917127844_092025-O.jpg' },
+  'IPAS02': { mlb: 'MLB5321963088', title: 'Eletrodo 6013 2.5mm 5kg', image: 'https://http2.mlstatic.com/D_658745-MLB91044369481_082025-O.jpg' },
+  'IPAS04': { mlb: 'MLB5321963088', title: 'Arame Solda Mig Er70s-6 0.8mm 5kg', image: 'https://http2.mlstatic.com/D_658745-MLB91044369481_082025-O.jpg' }
 };
 
 // Fetch ML item from API with authentication

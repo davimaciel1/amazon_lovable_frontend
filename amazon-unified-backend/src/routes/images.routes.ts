@@ -15,8 +15,12 @@ const imageCache = new NodeCache({ stdTTL: 604800 }); // 7 days cache
 // Mapping from custom SKUs to real MLB codes and their image URLs - CORRECTED
 const ML_SKU_MAPPING: Record<string, {mlb: string, image: string}> = {
   'IPAS01': {
-    mlb: 'MLBU3406999311', // CORRECTED: was MLB5677833500
+    mlb: 'MLBU3406999311',
     image: 'https://http2.mlstatic.com/D_746268-MLB91917127844_092025-O.jpg'
+  },
+  'IPAS02': {
+    mlb: 'MLB5321963088',
+    image: 'https://http2.mlstatic.com/D_658745-MLB91044369481_082025-O.jpg'
   },
   'IPAS04': {
     mlb: 'MLB5321963088',
@@ -25,6 +29,14 @@ const ML_SKU_MAPPING: Record<string, {mlb: string, image: string}> = {
   'IPP-PV-02': {
     mlb: 'MLB5308377982',
     image: 'https://http2.mlstatic.com/D_711283-MLB87635691989_072025-O.jpg'
+  },
+  'IPP-PV-04': {
+    mlb: 'MLB5649952004',
+    image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg'
+  },
+  'IPP-PV-05': {
+    mlb: 'MLB4100879553',
+    image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg'
   }
 };
 
