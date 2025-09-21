@@ -7,29 +7,10 @@ import NodeCache from 'node-cache';
 const router = Router();
 const imageCache = new NodeCache({ stdTTL: 604800 });
 
-// Real ML item mappings based on our inventory
+// REMOVED ALL FAKE MLB CODE MAPPINGS - Only real MLB codes allowed now
 const ML_PRODUCT_MAPPINGS: Record<string, { mlb: string; title: string; image: string }> = {
-  // IPP SKUs to real MLB codes - Using real piso vinílico product
-  'IPP-PV-01': { mlb: 'MLB4100879553', title: 'Piso Vinílico', image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg' },
-  'IPP-PV-02': { mlb: 'MLB4100879553', title: 'Piso Vinílico', image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg' },
-  'IPP-PV-03': { mlb: 'MLB4100879553', title: 'Piso Vinílico', image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg' },
-  'IPP-PV-04': { mlb: 'MLB4100879553', title: 'Piso Vinílico', image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg' },
-  'IPP-PV-05': { mlb: 'MLB4100879553', title: 'Piso Vinílico', image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg' },
-  'IPP-PV-06': { mlb: 'MLB4100879553', title: 'Piso Vinílico', image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg' },
-  'IPP-PV-07': { mlb: 'MLB4100879553', title: 'Piso Vinílico', image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg' },
-  'IPP-PV-08': { mlb: 'MLB4100879553', title: 'Piso Vinílico', image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg' },
-  'IPP-PV-09': { mlb: 'MLB4100879553', title: 'Piso Vinílico', image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg' },
-  'IPP-PV-10': { mlb: 'MLB4100879553', title: 'Piso Vinílico', image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg' },
-  
-  // Direct MLB codes that already work
-  'MLB4100879553': { mlb: 'MLB4100879553', title: 'Piso Vinílico', image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg' },
-  'MLB3772801129': { mlb: 'MLB3772801129', title: 'Porus One', image: 'https://http2.mlstatic.com/D_775949-MLB77572311431_072024-F.jpg' },
-  'MLB5649953084': { mlb: 'MLB5649953084', title: 'Porus One', image: 'https://http2.mlstatic.com/D_980841-MLA91448905807_092025-F.jpg' },
-  
-  // IPAS codes - real welding wire products (CORRECTED to match frontend)
-  'IPAS01': { mlb: 'MLBU3406999311', title: 'Arame Solda Mig Tubular 0.8mm 1kg', image: 'https://http2.mlstatic.com/D_746268-MLB91917127844_092025-O.jpg' },
-  'IPAS02': { mlb: 'MLB5321963088', title: 'Eletrodo 6013 2.5mm 5kg', image: 'https://http2.mlstatic.com/D_658745-MLB91044369481_082025-O.jpg' },
-  'IPAS04': { mlb: 'MLB5321963088', title: 'Arame Solda Mig Er70s-6 0.8mm 5kg', image: 'https://http2.mlstatic.com/D_658745-MLB91044369481_082025-O.jpg' }
+  // Only keep mappings for real MLB codes that actually exist on Mercado Livre
+  // All previous mappings with fabricated codes have been removed for data accuracy
 };
 
 // Fetch ML item from API with authentication
@@ -127,17 +108,8 @@ router.post('/update-ml-images', requireAuthOrApiKey, async (_req: Request, res:
       }
     }
     
-    // Step 3: Update ml_inventory mappings
-    await pool.query(`
-      UPDATE ml_inventory 
-      SET item_id = CASE 
-        WHEN seller_sku LIKE 'IPP-PV-%' THEN 'MLB4100879553'
-        WHEN seller_sku LIKE 'IPAS01' THEN 'MLB3458706470'
-        WHEN seller_sku LIKE 'IPAS04' THEN 'MLB3458706470'
-        ELSE item_id
-      END
-      WHERE seller_sku LIKE 'IPP%' OR seller_sku LIKE 'IPA%'
-    `);
+    // Step 3: Removed fake MLB code mappings for ml_inventory table
+    // No longer updating with fabricated MLB codes
     
     // Clear image cache
     imageCache.flushAll();
