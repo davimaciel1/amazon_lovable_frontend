@@ -371,7 +371,16 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
         // Fallback: generate image URL from ASIN if backend didn't send one
         if (!imageUrl && row.original.asin) {
           try {
-            const encoded = btoa(row.original.asin);
+            // For ML products, use original SKU for image URL (not converted MLB code)
+            let codeForImageUrl: string;
+            if (marketplaceType === 'mercadolivre') {
+              // Use original SKU so backend can find the product in database
+              codeForImageUrl = row.original.sku || row.original.asin;
+            } else {
+              // For Amazon, use ASIN as usual
+              codeForImageUrl = row.original.asin;
+            }
+            const encoded = btoa(codeForImageUrl);
             imageUrl = `${backendOrigin}/app/product-images/${encoded}.jpg`;
           } catch {}
         }
@@ -395,7 +404,8 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
         } else {
           marketplace = 'usa';  // Default to USA for any other marketplace
         }
-let marketplaceType: 'amazon' | 'mercadolivre' = 'amazon';
+        
+        let marketplaceType: 'amazon' | 'mercadolivre' = 'amazon';
         if (typeof marketplaceId === 'string' && marketplaceId.toUpperCase().startsWith('ML')) {
           marketplaceType = 'mercadolivre';
         }
