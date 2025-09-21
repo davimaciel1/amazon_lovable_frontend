@@ -255,12 +255,8 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
     const rows = result.rows.map((row: any, index: number) => {
       const asin: string = row.asin || `item-${index}`;
       
-      // For Mercado Livre products, use MLB item_id for images instead of custom SKU
+      // Always use the original SKU/ASIN for image URLs so backend can find products in database
       let imageIdentifier = asin;
-      if (row.marketplace_id === 'MLB' && row.ml_item_id) {
-        // Use real MLB code from ml_inventory table for proper image fetching
-        imageIdentifier = row.ml_item_id;
-      }
       
       const base64Id = Buffer.from(String(imageIdentifier)).toString('base64');
       const imageUrl = `/app/product-images/${base64Id}.jpg`;

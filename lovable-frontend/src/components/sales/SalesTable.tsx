@@ -43,32 +43,21 @@ import {
 function getMLBFromSKU(skuOrAsin?: string): string | null {
   if (!skuOrAsin) return null;
   
-  // Mapping table for known SKUs to MLB codes - UPDATED WITH CORRECT MAPPINGS
-  const MLB_MAP: Record<string, string> = {
-    'IPAS01': 'MLBU3406999311', // Arame Solda Mig Tubular 0.8mm 1kg
-    'IPAS02': 'MLB5321963088',  // Eletrodo 6013 2.5mm 5kg
-    'IPAS04': 'MLB5321963088',  // Arame Solda Mig Er70s-6 0.8mm 5kg
-    'IPP-PV-02': 'MLB5308377982', // Piso Vinílico
-    'IPP-PV-04': 'MLB5649952004', // Piso Vinílico Autocolante
-    'IPP-PV-05': 'MLB4100879553'  // Piso Vinílico Autocolante
-  };
+  // REMOVED ALL FAKE MLB CODES - only use real ones now
+  // No custom SKU mappings since they were fabricated
   
-  // Check direct mapping first
-  if (MLB_MAP[skuOrAsin]) {
-    return MLB_MAP[skuOrAsin];
-  }
-  
-  // If already an MLB code, normalize it
-  if (/^ML[A-Z]?\d+/i.test(skuOrAsin)) {
+  // If already an MLB code, validate it's a real format and return it
+  if (/^MLB\d{10,}$/i.test(skuOrAsin)) {
     return skuOrAsin.toUpperCase();
   }
   
-  // Try to extract MLB code embedded in the SKU
-  const match = skuOrAsin.match(/MLB\d{6,}/i);
+  // Try to extract real MLB code embedded in the SKU
+  const match = skuOrAsin.match(/MLB\d{10,}/i);
   if (match) {
     return match[0].toUpperCase();
   }
   
+  // No fake mappings - return null if no real MLB code found
   return null;
 }
 
