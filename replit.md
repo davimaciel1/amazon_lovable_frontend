@@ -84,6 +84,19 @@ The system employs a multi-service architecture with specialized components:
 
 ## Recent Changes (September 2025)
 
+## ML Product Display Fixes (September 21, 2025)
+
+**Mercado Livre Product Code Display**: Fixed critical issue where ML products showed internal SKU codes instead of proper MLB codes below product images in sales dashboard.
+
+**MLB Code Mapping Corrections**: Updated SKU-to-MLB mapping function with accurate codes:
+- IPAS01: MLBU3406999311 (Arame Solda Mig Tubular 0.8mm 1kg)  
+- IPAS02: MLB5321963088 (Eletrodo 6013 2.5mm 5kg)
+- IPAS04: MLB5321963088 (Arame Solda Mig Er70s-6 0.8mm 5kg)
+- IPP-PV-04: MLB5649952004 (Piso Vinílico Autocolante)
+- IPP-PV-05: MLB4100879553 (Piso Vinílico Autocolante)
+
+**Image Rendering Verification**: Confirmed ML product images are functioning correctly with proper backend serving (200 OK responses) and CORS configuration.
+
 ## Order Details Interface Implementation (September 14, 2025)
 
 **Complete Detailed Orders System**: Successfully implemented comprehensive order viewing functionality with the following features:
