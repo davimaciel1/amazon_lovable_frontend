@@ -222,7 +222,7 @@ const endpoint = params?.channel && params.channel !== 'amazon' ? '/sales-unifie
     limit?: number;
     startDate?: string;
     endDate?: string;
-    channel?: 'all' | 'amazon' | 'mercadolivre';
+    channel?: 'all' | 'amazon' | 'ml';
     status?: string;
     search?: string;
   }): Promise<ApiResponse> {
