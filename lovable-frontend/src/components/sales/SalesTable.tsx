@@ -366,6 +366,13 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
           }
         }
 
+        // Determine marketplace type early for image URL logic
+        let marketplaceType: 'amazon' | 'mercadolivre' = 'amazon';
+        const marketplaceId = row.original.marketplace_id || 'ATVPDKIKX0DER';
+        if (typeof marketplaceId === 'string' && marketplaceId.toUpperCase().startsWith('ML')) {
+          marketplaceType = 'mercadolivre';
+        }
+
         // Fallback: generate image URL from ASIN if backend didn't send one
         if (!imageUrl && row.original.asin) {
           try {
@@ -379,7 +386,9 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
               codeForImageUrl = row.original.asin;
             }
             const encoded = btoa(codeForImageUrl);
-            imageUrl = `${backendOrigin}/app/product-images/${encoded}.jpg`;
+            // Add cache busting timestamp to force browser to reload updated images
+            const cacheBuster = Date.now();
+            imageUrl = `${backendOrigin}/app/product-images/${encoded}.jpg?v=${cacheBuster}`;
           } catch {}
         }
         
@@ -392,7 +401,6 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
         // ATVPDKIKX0DER = Amazon US → Show USA flag 🇺🇸
         // A2Q3Y263D00KWC = Amazon BR → Show Brazil flag 🇧🇷
         // MLB = Mercado Livre Brasil → Show Brazil flag 🇧🇷
-        const marketplaceId = row.original.marketplace_id || 'ATVPDKIKX0DER';
         let marketplace: 'brazil' | 'usa';
         
         if (marketplaceId === 'ATVPDKIKX0DER') {
@@ -401,11 +409,6 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
           marketplace = 'brazil';  // Amazon BR or Mercado Livre Brasil → Brazil flag
         } else {
           marketplace = 'usa';  // Default to USA for any other marketplace
-        }
-        
-        let marketplaceType: 'amazon' | 'mercadolivre' = 'amazon';
-        if (typeof marketplaceId === 'string' && marketplaceId.toUpperCase().startsWith('ML')) {
-          marketplaceType = 'mercadolivre';
         }
         
         // Use REAL data from database - NO MOCK VALUES!
