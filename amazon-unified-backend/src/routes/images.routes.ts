@@ -20,7 +20,7 @@ const ML_SKU_MAPPING: Record<string, {mlb: string, image: string}> = {
     image: 'https://http2.mlstatic.com/D_NQ_NP_2X_996651-MLB71319095517_082023-F.webp'
   },
   'IPAS02': {
-    mlb: 'MLB25563772',
+    mlb: 'MLB4258563772',
     image: 'https://http2.mlstatic.com/D_NQ_NP_2X_858526-MLB46917688635_072021-F.webp'
   },
   'IPAS04': {

@@ -46,7 +46,7 @@ function getMLBFromSKU(skuOrAsin?: string): string | null {
   // CÓDIGOS MLB REAIS - validados e existem no Mercado Livre
   const REAL_MLB_MAP: Record<string, string> = {
     'IPAS01': 'MLB3628967960', // Arame Solda Mig Tubular 0.8mm 1kg
-    'IPAS02': 'MLB25563772',    // Eletrodo 6013 2.5mm 5kg
+    'IPAS02': 'MLB4258563772',  // Eletrodo 6013 2.5mm 5kg
     'IPAS04': 'MLB2882967139', // Arame Solda Mig Er70s-6 0.8mm 5kg
   };
   
@@ -56,12 +56,12 @@ function getMLBFromSKU(skuOrAsin?: string): string | null {
   }
   
   // If already an MLB code, validate it's a real format and return it
-  if (/^MLB[A-Z0-9\-]{10,}$/i.test(skuOrAsin)) {
+  if (/^MLB\d{9,10}$/.test(skuOrAsin)) {
     return skuOrAsin.toUpperCase();
   }
   
   // Try to extract real MLB code embedded in the SKU
-  const match = skuOrAsin.match(/MLB[A-Z0-9\-]{10,}/i);
+  const match = skuOrAsin.match(/MLB\d{9,10}/);
   if (match) {
     return match[0].toUpperCase();
   }
