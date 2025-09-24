@@ -14,6 +14,7 @@ const imageCache = new NodeCache({ stdTTL: 604800 }); // 7 days cache
 
 // CÓDIGOS MLB REAIS - validados e existem no Mercado Livre
 const ML_SKU_MAPPING: Record<string, {mlb: string, image: string}> = {
+  // Arame de Solda - códigos reais verificados
   'IPAS01': {
     mlb: 'MLB-3628967960',
     image: 'https://http2.mlstatic.com/D_NQ_NP_2X_996651-MLB71319095517_082023-F.webp'
@@ -25,6 +26,52 @@ const ML_SKU_MAPPING: Record<string, {mlb: string, image: string}> = {
   'IPAS04': {
     mlb: 'MLB-2882967139',
     image: 'https://http2.mlstatic.com/D_NQ_NP_2X_609133-MLB69321002471_052023-F.webp'
+  },
+  
+  // Pisos Vinílicos - mapeamento para produtos IPP-PV
+  'IPP-PV-01': {
+    mlb: 'MLB4100879553',
+    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
+  },
+  'IPP-PV-02': {
+    mlb: 'MLB4100879553', 
+    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
+  },
+  'IPP-PV-03': {
+    mlb: 'MLB4100879553',
+    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
+  },
+  'IPP-PV-04': {
+    mlb: 'MLB4100879553',
+    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
+  },
+  'IPP-PV-05': {
+    mlb: 'MLB4100879553',
+    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
+  },
+  'IPP-PV-06': {
+    mlb: 'MLB4100879553',
+    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
+  },
+  'IPP-PV-02-5': {
+    mlb: 'MLB4100879553',
+    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
+  },
+  'IPP-PV-03-5': {
+    mlb: 'MLB4100879553',
+    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
+  },
+  'IPP-PV-04-5': {
+    mlb: 'MLB4100879553',
+    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
+  },
+  'IPP-PV-05-5': {
+    mlb: 'MLB4100879553',
+    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
+  },
+  'IPP-PV-06-5': {
+    mlb: 'MLB4100879553',
+    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
   }
 };
 
