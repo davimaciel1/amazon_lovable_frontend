@@ -12,94 +12,12 @@ const imageCache = new NodeCache({ stdTTL: 3600 }); // 1 hour cache for faster u
 
 // Use shared database pool
 
-// CÓDIGOS MLB REAIS - validados e existem no Mercado Livre
-const ML_SKU_MAPPING: Record<string, {mlb: string, image: string}> = {
-  // Arame de Solda - códigos reais verificados
-  'IPAS01': {
-    mlb: 'MLB3628967960',
-    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_996651-MLB71319095517_082023-F.webp'
-  },
-  'IPAS02': {
-    mlb: 'MLB4258563772',
-    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_858526-MLB46917688635_072021-F.webp'
-  },
-  'IPAS04': {
-    mlb: 'MLB2882967139',
-    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_609133-MLB69321002471_052023-F.webp'
-  },
-  
-  // Pisos Vinílicos - mapeamento para produtos IPP-PV
-  'IPP-PV-01': {
-    mlb: 'MLB4100879553',
-    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
-  },
-  'IPP-PV-02': {
-    mlb: 'MLB4100879553', 
-    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
-  },
-  'IPP-PV-03': {
-    mlb: 'MLB4100879553',
-    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
-  },
-  'IPP-PV-04': {
-    mlb: 'MLB4100879553',
-    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
-  },
-  'IPP-PV-05': {
-    mlb: 'MLB4100879553',
-    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
-  },
-  'IPP-PV-06': {
-    mlb: 'MLB4100879553',
-    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
-  },
-  'IPP-PV-02-5': {
-    mlb: 'MLB4100879553',
-    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
-  },
-  'IPP-PV-03-5': {
-    mlb: 'MLB4100879553',
-    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
-  },
-  'IPP-PV-04-5': {
-    mlb: 'MLB4100879553',
-    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
-  },
-  'IPP-PV-05-5': {
-    mlb: 'MLB4100879553',
-    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
-  },
-  'IPP-PV-06-5': {
-    mlb: 'MLB4100879553',
-    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_627817-MLB50293913094_062022-F.webp'
-  }
-};
+// REMOVED ALL HARDCODED MAPPINGS - System now uses only real data from database and Mercado Livre API
+// No more fake/mock/hardcoded data - all images come from authentic sources
 
-// Validate MLB codes to prevent fabricated IDs
-function validateMLBCode(mlbCode: string): boolean {
-  // Real MLB codes format: MLB followed by 9-10 digits, no hyphens
-  const validMLBPattern = /^MLB\d{9,10}$/;
-  return validMLBPattern.test(mlbCode);
-}
+// REMOVED validateMLBCode() - No longer needed since we removed all hardcoded mappings
 
-// Validate all MLB codes in mapping during startup
-function validateAllMLBCodes(): void {
-  const invalidCodes: string[] = [];
-  Object.entries(ML_SKU_MAPPING).forEach(([sku, mapping]) => {
-    if (!validateMLBCode(mapping.mlb)) {
-      invalidCodes.push(`${sku}: ${mapping.mlb}`);
-    }
-  });
-  
-  if (invalidCodes.length > 0) {
-    console.warn('⚠️ Invalid MLB codes detected in mapping:', invalidCodes);
-  } else {
-    console.log('✅ All MLB codes validated successfully');
-  }
-}
-
-// Run validation on startup
-validateAllMLBCodes();
+// REMOVED validateAllMLBCodes() - No longer needed since we removed all hardcoded mappings
 
 // Decode Base64 product ID or return plain ID (supports multiple marketplaces)
 function decodeAsin(encodedId: string): string | null {
@@ -126,11 +44,8 @@ function decodeAsin(encodedId: string): string | null {
   return null;
 }
 
-// Get real ML image URL for custom SKUs
-function getMercadoLivreImageUrl(sku: string): string | null {
-  const mapping = ML_SKU_MAPPING[sku];
-  return mapping ? mapping.image : null;
-}
+// REMOVED getMercadoLivreImageUrl() - No longer needed since we removed all hardcoded mappings
+// System now uses only authentic data from database and real ML API calls
 
 // Generate ETag from buffer
 function generateETag(buffer: Buffer): string {
@@ -264,14 +179,9 @@ if (result.rows.length === 0) {
     }
 
     let imageUrl = (product.image_source_url as string | null) || (product.image_url as string | null);
-    console.log(`🔍 [IMAGE DEBUG] Final imageUrl for "${asin}": "${imageUrl}"`);
+    console.log(`🔍 [IMAGE DEBUG] Using REAL database imageUrl for "${asin}": "${imageUrl}"`);
 
-    // Check if this is a custom SKU that maps to a Mercado Livre image
-    const mlImageUrl = getMercadoLivreImageUrl(asin);
-    if (mlImageUrl) {
-      console.log(`🔗 [ML IMAGE] Using mapped ML image for SKU "${asin}": ${mlImageUrl}`);
-      imageUrl = mlImageUrl;
-    }
+    // REMOVED hardcoded ML mapping override - Now uses only authentic data from database
 
     // If no image URL in DB and no ML mapping, render placeholder
     if (!imageUrl || imageUrl === '') {
