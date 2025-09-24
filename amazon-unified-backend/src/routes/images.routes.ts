@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 
 const router = Router();
-const imageCache = new NodeCache({ stdTTL: 604800 }); // 7 days cache
+const imageCache = new NodeCache({ stdTTL: 3600 }); // 1 hour cache for faster updates
 
 // Use shared database pool
 
@@ -166,7 +166,7 @@ if (!asin) {
       
       res.set({
         'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`,
-        'Cache-Control': 'public, max-age=604800, s-maxage=604800',
+        'Cache-Control': 'public, max-age=3600, s-maxage=3600',
         'ETag': etag
       });
       return res.send(cached);
@@ -228,7 +228,7 @@ if (result.rows.length === 0) {
           }
           res.set({
             'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`,
-            'Cache-Control': 'public, max-age=604800, s-maxage=604800',
+            'Cache-Control': 'public, max-age=3600, s-maxage=3600',
             'ETag': etag,
             'X-Product-ASIN': asin
           });
@@ -336,7 +336,7 @@ if (result.rows.length === 0) {
     // Send response with appropriate headers
     res.set({
       'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`,
-      'Cache-Control': 'public, max-age=604800, s-maxage=604800',
+      'Cache-Control': 'public, max-age=3600, s-maxage=3600',
       'ETag': etag,
       'X-Product-ASIN': asin
     });
