@@ -21,10 +21,18 @@ const server = fastify({
   logger: true
 });
 
-// Configurar CORS
+// Configurar CORS para ChatGPT
 await server.register(cors, {
-  origin: true,
-  credentials: true
+  origin: [
+    'https://chatgpt.com',
+    'https://chat.openai.com', 
+    'https://api.openai.com',
+    /^https:\/\/.*\.replit\.dev$/,
+    /^https:\/\/.*\.replit\.app$/,
+    true
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS']
 });
 
 /**
@@ -318,6 +326,313 @@ ${(product.revenue || 0) > 5000 ? '⭐ **DESTAQUE**: Este é um dos seus produto
     };
   }
 });
+
+// ---- PROTOCOLO MCP OFICIAL ----
+
+/**
+ * Endpoint principal MCP via GET - informações do servidor
+ */
+server.get('/', async (request, reply) => {
+  return {
+    name: 'Amazon Seller Dashboard MCP Server',
+    version: '1.0.0',
+    description: 'Servidor MCP para integração do ChatGPT com dados de vendas Amazon/ML',
+    capabilities: {
+      tools: ['search', 'fetch']
+    },
+    protocol: 'mcp',
+    backend_url: BACKEND_URL
+  };
+});
+
+/**
+ * Endpoint principal MCP via POST - JSON-RPC
+ */
+server.post('/', async (request, reply) => {
+  const { method, params = {} } = request.body || {};
+  
+  server.log.info(`🔧 MCP RPC Call: "${method}"`);
+  
+  switch (method) {
+    case 'initialize':
+      return {
+        protocolVersion: '2024-11-05',
+        capabilities: {
+          tools: {}
+        },
+        serverInfo: {
+          name: 'Amazon Seller Dashboard',
+          version: '1.0.0'
+        }
+      };
+      
+    case 'tools/list':
+      return {
+        tools: [
+          {
+            name: 'search',
+            description: 'Buscar dados de vendas por SKU, ASIN, título ou termo',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                query: {
+                  type: 'string',
+                  description: 'Termo de busca'
+                }
+              },
+              required: ['query']
+            }
+          },
+          {
+            name: 'fetch',
+            description: 'Obter análises específicas: dashboard-stats, sales-data, product-analytics',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'string',
+                  description: 'ID do recurso: dashboard-stats, sales-data, product-analytics'
+                }
+              },
+              required: ['id']
+            }
+          }
+        ]
+      };
+      
+    case 'tools/call':
+      const { name, arguments: args } = params;
+      
+      if (name === 'search') {
+        const searchResult = await handleSearch(args.query || '');
+        return {
+          content: searchResult.content
+        };
+      } else if (name === 'fetch') {
+        const fetchResult = await handleFetch(args.id || 'dashboard-stats');
+        return {
+          content: fetchResult.content
+        };
+      }
+      
+      return { error: 'Tool not found' };
+      
+    default:
+      return { error: 'Method not supported' };
+  }
+});
+
+// ---- FUNÇÕES DE HANDLE ----
+
+async function handleSearch(query) {
+  try {
+    server.log.info(`🔍 Search query: "${query}"`);
+    
+    const salesData = await fetchSalesData(query);
+    
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            results: salesData
+          })
+        }
+      ]
+    };
+  } catch (error) {
+    server.log.error('Erro no search:', error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            error: 'Internal server error',
+            message: error.message
+          })
+        }
+      ]
+    };
+  }
+}
+
+async function handleFetch(id) {
+  try {
+    server.log.info(`📄 Fetch ID: "${id}"`);
+    
+    if (id === 'dashboard-stats') {
+      const salesData = await fetchSalesData('', 50);
+      const dashboardStats = await fetchDashboardStats();
+      
+      const marketplaces = {};
+      let totalRevenue = 0;
+      let totalUnits = 0;
+      
+      salesData.forEach(item => {
+        const marketplace = item.marketplace_code || 'Unknown';
+        if (!marketplaces[marketplace]) {
+          marketplaces[marketplace] = { revenue: 0, units: 0, products: 0 };
+        }
+        
+        marketplaces[marketplace].revenue += item.revenue || 0;
+        marketplaces[marketplace].units += item.units || 0;
+        marketplaces[marketplace].products += 1;
+        
+        totalRevenue += item.revenue || 0;
+        totalUnits += item.units || 0;
+      });
+      
+      const topProducts = salesData.slice(0, 10);
+      
+      const result = {
+        id: 'dashboard-stats',
+        title: 'Análise Completa do Dashboard Amazon Seller',
+        text: `
+## Resumo Executivo
+- **Total de Revenue**: R$ ${totalRevenue.toFixed(2)}
+- **Total de Unidades Vendidas**: ${totalUnits}
+- **Total de Produtos**: ${salesData.length}
+
+## Performance por Marketplace
+${Object.entries(marketplaces).map(([marketplace, data]) => 
+  `### ${marketplace}
+- Revenue: R$ ${data.revenue.toFixed(2)}
+- Unidades: ${data.units}
+- Produtos: ${data.products}`
+).join('\n')}
+
+## Top 10 Produtos por Revenue
+${topProducts.map((product, i) => 
+  `${i+1}. **${product.title || product.product}** (${product.sku})
+   - Revenue: R$ ${(product.revenue || 0).toFixed(2)}
+   - Unidades: ${product.units || 0}
+   - Estoque: ${product.stock || 0}
+   - Marketplace: ${product.marketplace_code}`
+).join('\n')}
+
+## Insights e Recomendações
+- Produto com maior revenue: ${topProducts[0]?.title || 'N/A'}
+- Marketplace dominante: ${Object.entries(marketplaces).sort((a,b) => b[1].revenue - a[1].revenue)[0]?.[0] || 'N/A'}
+- Produtos com estoque baixo: ${salesData.filter(p => (p.stock || 0) < 10).length}
+        `,
+        url: `${process.env.FRONTEND_URL || 'https://your-app.replit.dev'}/sales`,
+        metadata: {
+          type: 'dashboard_analysis',
+          generated_at: new Date().toISOString(),
+          total_products: salesData.length
+        }
+      };
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result)
+          }
+        ]
+      };
+    }
+    
+    // Buscar produto específico por ID
+    const salesData = await fetchSalesData('', 100);
+    const product = salesData.find(item => item.id === id || item.sku === id || item.asin === id);
+    
+    if (!product) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              id,
+              title: 'Produto não encontrado',
+              text: `Produto com ID "${id}" não foi encontrado nos dados de vendas.`,
+              url: `${process.env.FRONTEND_URL || 'https://your-app.replit.dev'}/sales`,
+              metadata: { error: 'not_found' }
+            })
+          }
+        ]
+      };
+    }
+    
+    // Análise detalhada do produto
+    const result = {
+      id: product.id,
+      title: `${product.title || product.product} - Análise Detalhada`,
+      text: `
+## Informações do Produto
+- **SKU**: ${product.sku}
+- **ASIN**: ${product.asin}
+- **Título**: ${product.title || product.product}
+- **Marketplace**: ${product.marketplace_code}
+
+## Performance de Vendas
+- **Revenue Total**: R$ ${(product.revenue || 0).toFixed(2)}
+- **Unidades Vendidas**: ${product.units || 0}
+- **Preço Médio**: R$ ${(product.price || 0).toFixed(2)}
+- **Total de Pedidos**: ${product.orders || 0}
+
+## Inventário e Logística
+- **Estoque Atual**: ${product.stock || 0} unidades
+- **Tipo de Fulfillment**: ${product.fulfillment_type || 'N/A'}
+- **Buy Box Winner**: ${product.buy_box_winner || 'N/A'}
+- **Número de Sellers**: ${product.sellers || 0}
+
+## Análise Financeira
+- **Profit**: ${product.profit ? `R$ ${product.profit.toFixed(2)}` : 'Não calculado'}
+- **ROI**: ${product.roi ? `${product.roi.toFixed(2)}%` : 'Não calculado'}
+- **ACOS**: ${product.acos ? `${product.acos.toFixed(2)}%` : 'Não calculado'}
+- **Health Status**: ${product.health || 'Unknown'}
+
+## Custos (se disponíveis)
+${product.costs ? `
+- **Custo de Compra**: ${product.costs.compra || 'Não informado'}
+- **Armazenagem**: ${product.costs.armazenagem || 'Não informado'}
+- **Frete Amazon**: ${product.costs.frete_amazon || 'Não informado'}
+- **Impostos**: ${product.costs.imposto_percent || 'Não informado'}
+` : '- Custos não configurados'}
+
+## Recomendações
+${(product.stock || 0) < 10 ? '⚠️ **ATENÇÃO**: Estoque baixo! Considere reabastecer.\n' : ''}
+${(product.health === 'poor') ? '❌ **ALERTA**: Performance ruim detectada.\n' : ''}
+${(product.revenue || 0) > 5000 ? '⭐ **DESTAQUE**: Este é um dos seus produtos top performers!\n' : ''}
+      `,
+      url: `${process.env.FRONTEND_URL || 'https://your-app.replit.dev'}/sales?sku=${product.sku}`,
+      metadata: {
+        type: 'product_analysis',
+        sku: product.sku,
+        asin: product.asin,
+        marketplace: product.marketplace_code,
+        generated_at: new Date().toISOString()
+      }
+    };
+    
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(result)
+        }
+      ]
+    };
+    
+  } catch (error) {
+    server.log.error('Erro no fetch:', error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            id: id || 'unknown',
+            title: 'Erro no servidor',
+            text: 'Ocorreu um erro interno do servidor ao buscar os dados.',
+            url: `${process.env.FRONTEND_URL || 'https://your-app.replit.dev'}/sales`,
+            metadata: { error: 'internal_server_error' }
+          })
+        }
+      ]
+    };
+  }
+}
 
 /**
  * Health check endpoint
