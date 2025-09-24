@@ -16,7 +16,7 @@ const imageCache = new NodeCache({ stdTTL: 604800 }); // 7 days cache
 const ML_SKU_MAPPING: Record<string, {mlb: string, image: string}> = {
   // Arame de Solda - códigos reais verificados
   'IPAS01': {
-    mlb: 'MLB-3628967960',
+    mlb: 'MLB3628967960',
     image: 'https://http2.mlstatic.com/D_NQ_NP_2X_996651-MLB71319095517_082023-F.webp'
   },
   'IPAS02': {
@@ -24,7 +24,7 @@ const ML_SKU_MAPPING: Record<string, {mlb: string, image: string}> = {
     image: 'https://http2.mlstatic.com/D_NQ_NP_2X_858526-MLB46917688635_072021-F.webp'
   },
   'IPAS04': {
-    mlb: 'MLB-2882967139',
+    mlb: 'MLB2882967139',
     image: 'https://http2.mlstatic.com/D_NQ_NP_2X_609133-MLB69321002471_052023-F.webp'
   },
   
