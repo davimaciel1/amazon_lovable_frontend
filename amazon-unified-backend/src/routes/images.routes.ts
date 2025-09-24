@@ -30,9 +30,23 @@ async function fetchMLProductAndSaveImage(sku: string): Promise<string | null> {
       return null;
     }
     
-    // Search for product by SKU using ML seller items API
+    // Get seller ID first
+    const sellerResponse = await axios.get(
+      'https://api.mercadolibre.com/users/me',
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json'
+        },
+        timeout: 10000
+      }
+    );
+
+    const sellerId = sellerResponse.data.id;
+    
+    // Search for product by SKU using ML seller items API (correct endpoint)
     const searchResponse = await axios.get(
-      `https://api.mercadolibre.com/users/me/items/search?q=${encodeURIComponent(sku)}`,
+      `https://api.mercadolibre.com/users/${sellerId}/items/search?seller_sku=${encodeURIComponent(sku)}`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -62,32 +76,18 @@ async function fetchMLProductAndSaveImage(sku: string): Promise<string | null> {
       if (item.pictures && item.pictures.length > 0) {
         const imageUrl = item.pictures[0].secure_url || item.pictures[0].url;
         
-        // Download and convert image to base64
-        const imageResponse = await axios.get(imageUrl, {
-          responseType: 'arraybuffer',
-          timeout: 10000,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
-        });
-        
-        const imageBuffer = Buffer.from(imageResponse.data);
-        const base64Image = imageBuffer.toString('base64');
-        const dataUri = `data:image/jpeg;base64,${base64Image}`;
-        
         // Save product to database
         const insertQuery = `
           INSERT INTO products (
             asin, sku, title, marketplace_id,
-            image_url, image_source_url, local_image_data,
+            image_url, image_source_url,
             created_at, updated_at
           ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
+            $1, $2, $3, $4, $5, $6, NOW(), NOW()
           )
           ON CONFLICT (asin) DO UPDATE SET
             image_url = EXCLUDED.image_url,
             image_source_url = EXCLUDED.image_source_url,
-            local_image_data = EXCLUDED.local_image_data,
             title = EXCLUDED.title,
             updated_at = NOW()
         `;
@@ -98,8 +98,7 @@ async function fetchMLProductAndSaveImage(sku: string): Promise<string | null> {
           item.title,
           'MLB',
           imageUrl,
-          imageUrl,
-          dataUri
+          imageUrl
         ]);
         
         logger.info(`✅ Successfully fetched and saved ML product: ${sku}`);
