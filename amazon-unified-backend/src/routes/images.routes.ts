@@ -75,6 +75,32 @@ const ML_SKU_MAPPING: Record<string, {mlb: string, image: string}> = {
   }
 };
 
+// Validate MLB codes to prevent fabricated IDs
+function validateMLBCode(mlbCode: string): boolean {
+  // Real MLB codes format: MLB followed by 9-10 digits, no hyphens
+  const validMLBPattern = /^MLB\d{9,10}$/;
+  return validMLBPattern.test(mlbCode);
+}
+
+// Validate all MLB codes in mapping during startup
+function validateAllMLBCodes(): void {
+  const invalidCodes: string[] = [];
+  Object.entries(ML_SKU_MAPPING).forEach(([sku, mapping]) => {
+    if (!validateMLBCode(mapping.mlb)) {
+      invalidCodes.push(`${sku}: ${mapping.mlb}`);
+    }
+  });
+  
+  if (invalidCodes.length > 0) {
+    console.warn('⚠️ Invalid MLB codes detected in mapping:', invalidCodes);
+  } else {
+    console.log('✅ All MLB codes validated successfully');
+  }
+}
+
+// Run validation on startup
+validateAllMLBCodes();
+
 // Decode Base64 product ID or return plain ID (supports multiple marketplaces)
 function decodeAsin(encodedId: string): string | null {
   // First, always try to decode from base64
