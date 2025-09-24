@@ -386,9 +386,9 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
               codeForImageUrl = row.original.asin;
             }
             const encoded = btoa(codeForImageUrl);
-            // Add cache busting timestamp to force browser to reload updated images
-            const cacheBuster = Date.now();
-            imageUrl = `${backendOrigin}/app/product-images/${encoded}.jpg?v=${cacheBuster}`;
+            // Add aggressive cache busting to force browser to reload updated images
+            const cacheBuster = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            imageUrl = `${backendOrigin}/app/product-images/${encoded}.jpg?v=${cacheBuster}&_t=${new Date().getTime()}`;
           } catch {}
         }
         
