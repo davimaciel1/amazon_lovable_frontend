@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import NodeCache from 'node-cache';
 import fs from 'fs';
 import path from 'path';
+import { logger } from '../utils/logger';
 
 const router = Router();
 const imageCache = new NodeCache({ stdTTL: 3600 }); // 1 hour cache for faster updates
@@ -15,9 +16,105 @@ const imageCache = new NodeCache({ stdTTL: 3600 }); // 1 hour cache for faster u
 // REMOVED ALL HARDCODED MAPPINGS - System now uses only real data from database and Mercado Livre API
 // No more fake/mock/hardcoded data - all images come from authentic sources
 
-// REMOVED validateMLBCode() - No longer needed since we removed all hardcoded mappings
-
-// REMOVED validateAllMLBCodes() - No longer needed since we removed all hardcoded mappings
+// Auto-fetch ML product images using real API
+async function fetchMLProductAndSaveImage(sku: string): Promise<string | null> {
+  try {
+    logger.info(`🔍 Auto-fetching ML product for SKU: ${sku}`);
+    
+    // Get ML access token
+    const tokenResponse = await axios.get('http://localhost:8080/api/ml/credentials/access-token');
+    const accessToken = tokenResponse.data.access_token;
+    
+    if (!accessToken) {
+      logger.error('❌ No ML access token available');
+      return null;
+    }
+    
+    // Search for product by SKU using ML seller items API
+    const searchResponse = await axios.get(
+      `https://api.mercadolibre.com/users/me/items/search?q=${encodeURIComponent(sku)}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json'
+        },
+        timeout: 10000
+      }
+    );
+    
+    if (searchResponse.data.results && searchResponse.data.results.length > 0) {
+      const itemId = searchResponse.data.results[0];
+      
+      // Get detailed item info
+      const itemResponse = await axios.get(
+        `https://api.mercadolibre.com/items/${itemId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Accept': 'application/json'
+          },
+          timeout: 10000
+        }
+      );
+      
+      const item = itemResponse.data;
+      
+      if (item.pictures && item.pictures.length > 0) {
+        const imageUrl = item.pictures[0].secure_url || item.pictures[0].url;
+        
+        // Download and convert image to base64
+        const imageResponse = await axios.get(imageUrl, {
+          responseType: 'arraybuffer',
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+        
+        const imageBuffer = Buffer.from(imageResponse.data);
+        const base64Image = imageBuffer.toString('base64');
+        const dataUri = `data:image/jpeg;base64,${base64Image}`;
+        
+        // Save product to database
+        const insertQuery = `
+          INSERT INTO products (
+            asin, sku, title, marketplace_id,
+            image_url, image_source_url, local_image_data,
+            created_at, updated_at
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, NOW(), NOW()
+          )
+          ON CONFLICT (asin) DO UPDATE SET
+            image_url = EXCLUDED.image_url,
+            image_source_url = EXCLUDED.image_source_url,
+            local_image_data = EXCLUDED.local_image_data,
+            title = EXCLUDED.title,
+            updated_at = NOW()
+        `;
+        
+        await db.query(insertQuery, [
+          sku,
+          sku,
+          item.title,
+          'MLB',
+          imageUrl,
+          imageUrl,
+          dataUri
+        ]);
+        
+        logger.info(`✅ Successfully fetched and saved ML product: ${sku}`);
+        return imageUrl;
+      }
+    }
+    
+    logger.warn(`⚠️ No ML product found for SKU: ${sku}`);
+    return null;
+    
+  } catch (error: any) {
+    logger.error(`❌ Failed to fetch ML product for ${sku}:`, error.message);
+    return null;
+  }
+}
 
 // Decode Base64 product ID or return plain ID (supports multiple marketplaces)
 function decodeAsin(encodedId: string): string | null {
@@ -52,15 +149,20 @@ function generateETag(buffer: Buffer): string {
   return crypto.createHash('md5').update(buffer).digest('hex');
 }
 
-// Known fallback images mapping removed; we now render local placeholders instead.
-
-// Render a real image (PNG/JPEG/WEBP) placeholder so <img> always shows a bitmap
-async function renderPlaceholder(format: string, asin: string): Promise<Buffer> {
+// NO MORE PLACEHOLDERS - System shows error instead
+// Render error image when automatic fetch fails
+async function renderErrorImage(format: string, asin: string): Promise<Buffer> {
   const svg = `
     <svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">
-      <rect width="300" height="300" fill="#f3f4f6"/>
-      <text x="150" y="150" font-family="Arial" font-size="14" fill="#9ca3af" text-anchor="middle">
-        No Image (${asin})
+      <rect width="300" height="300" fill="#fef2f2"/>
+      <text x="150" y="130" font-family="Arial" font-size="12" fill="#dc2626" text-anchor="middle">
+        IMAGE NOT FOUND
+      </text>
+      <text x="150" y="160" font-family="Arial" font-size="10" fill="#991b1b" text-anchor="middle">
+        Product: ${asin}
+      </text>
+      <text x="150" y="180" font-family="Arial" font-size="10" fill="#991b1b" text-anchor="middle">
+        Auto-fetch failed
       </text>
     </svg>
   `;
@@ -87,9 +189,9 @@ router.get('/product-images/:id.:format', async (req: Request, res: Response): P
   const asin = decodeAsin(id);
 if (!asin) {
     console.error('Invalid ASIN ID:', id);
-    const placeholder = await renderPlaceholder(format, 'invalid');
+    const errorImage = await renderErrorImage(format, 'INVALID_ID');
     res.set({ 'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`, 'Cache-Control': 'public, max-age=60' });
-    return res.send(placeholder);
+    return res.send(errorImage);
   }
 
   try {
@@ -136,10 +238,72 @@ const query = `
     }
     
 if (result.rows.length === 0) {
-      console.log('Product not found:', asin);
-      const placeholder = await renderPlaceholder(format, String(asin).toUpperCase());
-      res.set({ 'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`, 'Cache-Control': 'public, max-age=300' });
-      return res.send(placeholder);
+      console.log('Product not found in database, attempting auto-fetch:', asin);
+      
+      // Try to auto-fetch from ML API and save to database
+      const fetchedImageUrl = await fetchMLProductAndSaveImage(asin);
+      
+      if (fetchedImageUrl) {
+        // Re-query database for the newly inserted product
+        const newResult = await db.query(query, [asin]);
+        if (newResult.rows.length > 0) {
+          // Continue with normal image processing
+          const product = newResult.rows[0];
+          const imageUrl = (product.image_source_url as string | null) || (product.image_url as string | null);
+          
+          if (imageUrl) {
+            try {
+              const imageResponse = await axios.get(imageUrl, {
+                responseType: 'arraybuffer',
+                timeout: 10000,
+                headers: {
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                  'Accept': 'image/*'
+                },
+                maxRedirects: 5
+              });
+              
+              if (imageResponse.status < 400) {
+                let imageBuffer = Buffer.from(imageResponse.data);
+                
+                // Convert format if needed
+                if (format === 'webp') {
+                  imageBuffer = await sharp(imageBuffer).webp({ quality: 85 }).toBuffer();
+                } else if (format === 'jpg' || format === 'jpeg') {
+                  imageBuffer = await sharp(imageBuffer).jpeg({ quality: 90 }).toBuffer();
+                }
+                
+                // Cache and return
+                const cacheKey = `${asin}_${format}`;
+                imageCache.set(cacheKey, imageBuffer);
+                
+                const etag = generateETag(imageBuffer);
+                res.set({
+                  'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`,
+                  'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+                  'ETag': etag,
+                  'X-Product-ASIN': asin,
+                  'X-Auto-Fetched': 'true'
+                });
+                
+                return res.send(imageBuffer);
+              }
+            } catch (fetchError: any) {
+              console.error(`❌ Error fetching auto-fetched image for ${asin}:`, fetchError.message);
+            }
+          }
+        }
+      }
+      
+      // Auto-fetch failed, show error image
+      console.log('Auto-fetch failed, showing error image for:', asin);
+      const errorImage = await renderErrorImage(format, String(asin).toUpperCase());
+      res.set({ 
+        'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`, 
+        'Cache-Control': 'public, max-age=300',
+        'X-Error': 'Auto-fetch failed'
+      });
+      return res.send(errorImage);
     }
 
     const product = result.rows[0];
@@ -183,13 +347,16 @@ if (result.rows.length === 0) {
 
     // REMOVED hardcoded ML mapping override - Now uses only authentic data from database
 
-    // If no image URL in DB and no ML mapping, render placeholder
+    // If no image URL in DB, show error
     if (!imageUrl || imageUrl === '') {
-      console.log(`❌ [IMAGE DEBUG] No valid imageUrl found, rendering placeholder for "${asin}"`);
-      // No known image URL; render a local placeholder image (PNG/JPEG)
-      const placeholder = await renderPlaceholder(format, asinUpper);
-      res.set({ 'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`, 'Cache-Control': 'public, max-age=300' });
-      return res.send(placeholder);
+      console.log(`❌ [IMAGE DEBUG] No valid imageUrl found, showing error for "${asin}"`);
+      const errorImage = await renderErrorImage(format, asinUpper);
+      res.set({ 
+        'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`, 
+        'Cache-Control': 'public, max-age=300',
+        'X-Error': 'No image URL in database'
+      });
+      return res.send(errorImage);
     }
 
     // Fetch image from external source (Amazon, Mercado Livre, etc)
@@ -223,10 +390,14 @@ if (result.rows.length === 0) {
     });
 
     if (imageResponse.status >= 400) {
-      console.log(`❌ [IMAGE DEBUG] HTTP error ${imageResponse.status} for "${asin}", falling back to placeholder`);
-      const placeholder = await renderPlaceholder(format, String(asin).toUpperCase());
-      res.set({ 'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`, 'Cache-Control': 'public, max-age=300' });
-      return res.send(placeholder);
+      console.log(`❌ [IMAGE DEBUG] HTTP error ${imageResponse.status} for "${asin}", showing error image`);
+      const errorImage = await renderErrorImage(format, String(asin).toUpperCase());
+      res.set({ 
+        'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`, 
+        'Cache-Control': 'public, max-age=300',
+        'X-Error': `HTTP ${imageResponse.status}`
+      });
+      return res.send(errorImage);
     }
 
     let imageBuffer = Buffer.from(imageResponse.data);
@@ -257,10 +428,14 @@ if (result.rows.length === 0) {
         originalType: imageResponse.headers['content-type'],
         requestedFormat: format
       });
-      // Fall back to placeholder on conversion error
-      const placeholder = await renderPlaceholder(format, String(asin).toUpperCase());
-      res.set({ 'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`, 'Cache-Control': 'public, max-age=300' });
-      return res.send(placeholder);
+      // Show error on conversion failure
+      const errorImage = await renderErrorImage(format, String(asin).toUpperCase());
+      res.set({ 
+        'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`, 
+        'Cache-Control': 'public, max-age=300',
+        'X-Error': 'Image conversion failed'
+      });
+      return res.send(errorImage);
     }
 
     // Cache the processed image
@@ -288,11 +463,15 @@ if (result.rows.length === 0) {
       full_error: error
     });
 
-    // Return a rendered PNG/JPEG placeholder (no inline SVG)
+    // Return error image instead of placeholder
     const asinUpper = typeof asin === 'string' ? asin.toUpperCase() : String(asin || '').toUpperCase();
-    const placeholder = await renderPlaceholder(format, asinUpper);
-    res.set({ 'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`, 'Cache-Control': 'public, max-age=300' });
-    return res.send(placeholder);
+    const errorImage = await renderErrorImage(format, asinUpper);
+    res.set({ 
+      'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`, 
+      'Cache-Control': 'public, max-age=300',
+      'X-Error': 'Unexpected error'
+    });
+    return res.send(errorImage);
   }
 });
 

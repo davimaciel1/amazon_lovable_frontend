@@ -66,6 +66,25 @@ router.post('/upsert', optionalApiKey, async (req, res) => {
   }
 });
 
+// Get access token for internal use (image fetching)
+router.get('/access-token', optionalApiKey, async (_req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT credential_value FROM ml_credentials WHERE credential_key = 'ML_ACCESS_TOKEN' AND is_active = true`
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'No ML access token found' });
+    }
+    
+    const accessToken = result.rows[0].credential_value;
+    return res.json({ access_token: accessToken });
+  } catch (e: any) {
+    logger.error('Failed to get ML access token', e);
+    return res.status(500).json({ error: e.message || 'Failed to get access token' });
+  }
+});
+
 router.get('/ping', (_req, res) => res.json({ ok: true }));
 
 export const mlCredentialsRouter = router;
