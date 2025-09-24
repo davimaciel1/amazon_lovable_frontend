@@ -1,0 +1,19 @@
+{
+  "name": "amazon-seller-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP Server para ChatGPT acessar dados do Amazon Seller Dashboard",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "fastify": "^4.24.3",
+    "axios": "^1.6.2",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

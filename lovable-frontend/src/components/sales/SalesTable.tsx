@@ -376,11 +376,13 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
         // Fallback: generate image URL from ASIN if backend didn't send one
         if (!imageUrl && row.original.asin) {
           try {
-            // For ML products, use original SKU for image URL (not converted MLB code)
+            // For ML products, use the displayCode for consistency
             let codeForImageUrl: string;
             if (marketplaceType === 'mercadolivre') {
-              // Use original SKU so backend can find the product in database
-              codeForImageUrl = row.original.sku || row.original.asin;
+              // Get MLB code from SKU mapping to ensure image/display consistency
+              const mlbCode = getMLBFromSKU(row.original.sku || row.original.asin);
+              // Use MLB code if available, otherwise original SKU
+              codeForImageUrl = mlbCode || row.original.sku || row.original.asin;
             } else {
               // For Amazon, use ASIN as usual
               codeForImageUrl = row.original.asin;
