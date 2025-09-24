@@ -2,73 +2,38 @@
 
 /**
  * Amazon Seller Dashboard MCP Server
- * Model Context Protocol server para ChatGPT integração
- * 
- * Fornece acesso aos dados de vendas da Amazon e Mercado Livre
- * através de ferramentas search e fetch para ChatGPT
+ * Servidor compatível com ChatGPT Model Context Protocol (MCP)
+ * Fornece acesso aos dados de vendas Amazon e Mercado Livre
  */
 
-import fastify from 'fastify';
-import cors from '@fastify/cors';
+import Fastify from 'fastify';
 import axios from 'axios';
 
-// Configuração do servidor
+const server = Fastify({ 
+  logger: true,
+  disableRequestLogging: process.env.NODE_ENV === 'production'
+});
+
+// CORS
+server.register(import('@fastify/cors'), {
+  origin: true,
+  credentials: true
+});
+
+const PORT = process.env.PORT || 8008;
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
-const MCP_SERVER_PORT = process.env.MCP_SERVER_PORT || 8008;
-
-// Criar servidor Fastify
-const server = fastify({
-  logger: true
-});
-
-// Configurar CORS para ChatGPT
-await server.register(cors, {
-  origin: [
-    'https://chatgpt.com',
-    'https://chat.openai.com', 
-    'https://api.openai.com',
-    /^https:\/\/.*\.replit\.dev$/,
-    /^https:\/\/.*\.replit\.app$/,
-    true
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'OPTIONS']
-});
 
 /**
- * Buscar dados de vendas do backend principal
+ * Buscar dados de vendas do backend
  */
-async function fetchSalesData(query = '', limit = 10) {
+async function fetchSalesData(query = '', limit = 20) {
   try {
     const response = await axios.get(`${BACKEND_URL}/api/sales-unified`, {
-      params: {
-        page: 1,
-        limit: limit,
-        sortBy: 'revenue',
-        sortDir: 'desc',
-        channel: 'all'
-      }
+      params: { query, limit },
+      timeout: 10000
     });
-
-    if (response.data?.success && response.data?.data) {
-      const rows = Array.isArray(response.data.data) ? response.data.data : (response.data.data.rows || []);
-      
-      // Filtrar por query se fornecida
-      if (query && query.trim()) {
-        const searchQuery = query.toLowerCase();
-        return rows.filter(row => 
-          row.sku?.toLowerCase().includes(searchQuery) ||
-          row.asin?.toLowerCase().includes(searchQuery) ||
-          row.title?.toLowerCase().includes(searchQuery) ||
-          row.product?.toLowerCase().includes(searchQuery) ||
-          row.marketplace_code?.toLowerCase().includes(searchQuery)
-        );
-      }
-      
-      return rows;
-    }
-    
-    return [];
+    // Backend retorna {success: true, data: [...]}
+    return response.data?.data || [];
   } catch (error) {
     server.log.error('Erro ao buscar dados de vendas:', error.message);
     return [];
@@ -80,17 +45,43 @@ async function fetchSalesData(query = '', limit = 10) {
  */
 async function fetchDashboardStats() {
   try {
-    const response = await axios.get(`${BACKEND_URL}/api/dashboard/stats`);
+    const response = await axios.get(`${BACKEND_URL}/api/dashboard/stats`, {
+      timeout: 10000
+    });
     return response.data || {};
   } catch (error) {
     server.log.error('Erro ao buscar estatísticas:', error.message);
-    return {};
+    return {
+      totalRevenue: 0,
+      totalUnits: 0,
+      totalProducts: 0
+    };
   }
 }
 
+// ---- ENDPOINTS MCP PARA CHATGPT ----
+
 /**
- * Ferramenta search para ChatGPT MCP
- * Busca produtos por SKU, ASIN, título ou marketplace
+ * Endpoint GET - informações do servidor MCP
+ */
+server.get('/', async (request, reply) => {
+  return {
+    name: 'Amazon Seller Dashboard MCP Server',
+    version: '1.0.0',
+    description: 'Servidor MCP para integração ChatGPT com dados Amazon/ML',
+    capabilities: {
+      tools: ['search', 'fetch']
+    },
+    endpoints: {
+      search: '/search',
+      fetch: '/fetch'
+    },
+    status: 'active'
+  };
+});
+
+/**
+ * Tool: search - Buscar produtos e dados de vendas
  */
 server.post('/search', async (request, reply) => {
   try {
@@ -123,7 +114,9 @@ server.post('/search', async (request, reply) => {
       content: [
         {
           type: "text",
-          text: JSON.stringify({ results })
+          text: `Encontrados ${results.length} resultados de vendas:\n\n${results.map((item, i) => 
+            `${i + 1}. **${item.title}**\n   - ID: ${item.id}\n   - Detalhes: ${item.text}\n   - URL: ${item.url}`
+          ).join('\n\n')}`
         }
       ]
     };
@@ -133,11 +126,8 @@ server.post('/search', async (request, reply) => {
     return {
       content: [
         {
-          type: "text", 
-          text: JSON.stringify({ 
-            results: [],
-            error: 'Erro interno do servidor'
-          })
+          type: "text",
+          text: `❌ **Erro na busca**\n\nErro interno do servidor: ${error.message}\n\nPor favor, tente novamente ou verifique os parâmetros da busca.`
         }
       ]
     };
@@ -145,8 +135,7 @@ server.post('/search', async (request, reply) => {
 });
 
 /**
- * Ferramenta fetch para ChatGPT MCP
- * Obtém detalhes completos de um produto específico
+ * Tool: fetch - Obter detalhes específicos de um produto
  */
 server.post('/fetch', async (request, reply) => {
   try {
@@ -177,11 +166,7 @@ server.post('/fetch', async (request, reply) => {
         totalUnits += item.units || 0;
       });
       
-      const result = {
-        id: 'dashboard-stats',
-        title: 'Análise Completa do Dashboard Amazon Seller',
-        text: `
-## Resumo Executivo
+      const dashboardText = `## Resumo Executivo
 - **Total de Revenue**: R$ ${totalRevenue.toFixed(2)}
 - **Total de Unidades Vendidas**: ${totalUnits}
 - **Total de Produtos**: ${salesData.length}
@@ -206,21 +191,13 @@ ${topProducts.map((product, i) =>
 ## Insights e Recomendações
 - Produto com maior revenue: ${topProducts[0]?.title || 'N/A'}
 - Marketplace dominante: ${Object.entries(marketplaces).sort((a,b) => b[1].revenue - a[1].revenue)[0]?.[0] || 'N/A'}
-- Produtos com estoque baixo: ${salesData.filter(p => (p.stock || 0) < 10).length}
-        `,
-        url: `${process.env.FRONTEND_URL || 'https://your-app.replit.dev'}/sales`,
-        metadata: {
-          type: 'dashboard_analysis',
-          generated_at: new Date().toISOString(),
-          total_products: salesData.length
-        }
-      };
+- Produtos com estoque baixo: ${salesData.filter(p => (p.stock || 0) < 10).length}`;
       
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify(result)
+            text: dashboardText
           }
         ]
       };
@@ -235,45 +212,25 @@ ${topProducts.map((product, i) =>
         content: [
           {
             type: "text",
-            text: JSON.stringify({
-              id,
-              title: 'Produto não encontrado',
-              text: `Produto com ID "${id}" não foi encontrado nos dados de vendas.`,
-              url: `${process.env.FRONTEND_URL || 'https://your-app.replit.dev'}/sales`,
-              metadata: { error: 'not_found' }
-            })
+            text: `❌ **Produto não encontrado**\n\nO produto com ID "${id}" não foi encontrado nos dados de vendas.\n\n**Sugestões:**\n- Verifique se o ID está correto\n- Tente buscar pelo nome do produto\n- Consulte a lista completa de produtos disponíveis`
           }
         ]
       };
     }
     
     // Análise detalhada do produto
-    const result = {
-      id: product.id,
-      title: `${product.title || product.product} - Análise Detalhada`,
-      text: `
-## Informações do Produto
+    const productText = `# Análise Detalhada: ${product.title || product.product}
+
+## Informações Básicas
 - **SKU**: ${product.sku}
-- **ASIN**: ${product.asin}
-- **Título**: ${product.title || product.product}
+- **ASIN**: ${product.asin || 'N/A'}
 - **Marketplace**: ${product.marketplace_code}
-
-## Performance de Vendas
-- **Revenue Total**: R$ ${(product.revenue || 0).toFixed(2)}
+- **Revenue**: R$ ${(product.revenue || 0).toFixed(2)}
 - **Unidades Vendidas**: ${product.units || 0}
-- **Preço Médio**: R$ ${(product.price || 0).toFixed(2)}
-- **Total de Pedidos**: ${product.orders || 0}
+- **Estoque Atual**: ${product.stock || 0}
 
-## Inventário e Logística
-- **Estoque Atual**: ${product.stock || 0} unidades
-- **Tipo de Fulfillment**: ${product.fulfillment_type || 'N/A'}
-- **Buy Box Winner**: ${product.buy_box_winner || 'N/A'}
-- **Número de Sellers**: ${product.sellers || 0}
-
-## Análise Financeira
-- **Profit**: ${product.profit ? `R$ ${product.profit.toFixed(2)}` : 'Não calculado'}
-- **ROI**: ${product.roi ? `${product.roi.toFixed(2)}%` : 'Não calculado'}
-- **ACOS**: ${product.acos ? `${product.acos.toFixed(2)}%` : 'Não calculado'}
+## Performance
+- **Preço Médio**: R$ ${product.revenue && product.units ? (product.revenue / product.units).toFixed(2) : 'N/A'}
 - **Health Status**: ${product.health || 'Unknown'}
 
 ## Custos (se disponíveis)
@@ -287,398 +244,191 @@ ${product.costs ? `
 ## Recomendações
 ${(product.stock || 0) < 10 ? '⚠️ **ATENÇÃO**: Estoque baixo! Considere reabastecer.\n' : ''}
 ${(product.health === 'poor') ? '❌ **ALERTA**: Performance ruim detectada.\n' : ''}
-${(product.revenue || 0) > 5000 ? '⭐ **DESTAQUE**: Este é um dos seus produtos top performers!\n' : ''}
-      `,
-      url: `${process.env.FRONTEND_URL || 'https://your-app.replit.dev'}/sales?sku=${product.sku}`,
-      metadata: {
-        type: 'product_analysis',
-        sku: product.sku,
-        asin: product.asin,
-        marketplace: product.marketplace_code,
-        generated_at: new Date().toISOString()
-      }
-    };
+${(product.revenue || 0) > 5000 ? '⭐ **DESTAQUE**: Este é um dos seus produtos top performers!\n' : ''}`;
     
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify(result)
+          text: productText
         }
       ]
     };
     
   } catch (error) {
+    const errorId = request.body?.id || 'unknown';
     server.log.error('Erro no fetch:', error);
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify({
-            id: id || 'unknown',
-            title: 'Erro no servidor',
-            text: 'Ocorreu um erro interno do servidor ao buscar os dados.',
-            url: `${process.env.FRONTEND_URL || 'https://your-app.replit.dev'}/sales`,
-            metadata: { error: 'internal_server_error' }
-          })
+          text: `❌ **Erro no servidor**\n\nOcorreu um erro interno do servidor ao buscar os dados.\n\n**Erro**: ${error.message}\n\n**ID solicitado**: ${errorId}\n\nPor favor, tente novamente ou contate o suporte técnico.`
         }
       ]
     };
   }
 });
 
-// ---- PROTOCOLO MCP OFICIAL ----
+// ---- PROTOCOLO JSON-RPC 2.0 PARA MCP ----
 
 /**
- * Endpoint principal MCP via GET - informações do servidor
- */
-server.get('/', async (request, reply) => {
-  return {
-    name: 'Amazon Seller Dashboard MCP Server',
-    version: '1.0.0',
-    description: 'Servidor MCP para integração do ChatGPT com dados de vendas Amazon/ML',
-    capabilities: {
-      tools: ['search', 'fetch']
-    },
-    protocol: 'mcp',
-    backend_url: BACKEND_URL
-  };
-});
-
-/**
- * Endpoint principal MCP via POST - JSON-RPC
+ * Endpoint principal MCP via JSON-RPC 2.0
  */
 server.post('/', async (request, reply) => {
-  const { method, params = {} } = request.body || {};
-  
-  server.log.info(`🔧 MCP RPC Call: "${method}"`);
-  
-  switch (method) {
-    case 'initialize':
-      return {
-        protocolVersion: '2024-11-05',
-        capabilities: {
-          tools: {}
-        },
-        serverInfo: {
-          name: 'Amazon Seller Dashboard',
-          version: '1.0.0'
-        }
-      };
-      
-    case 'tools/list':
-      return {
-        tools: [
-          {
-            name: 'search',
-            description: 'Buscar dados de vendas por SKU, ASIN, título ou termo',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                query: {
-                  type: 'string',
-                  description: 'Termo de busca'
-                }
-              },
-              required: ['query']
-            }
-          },
-          {
-            name: 'fetch',
-            description: 'Obter análises específicas: dashboard-stats, sales-data, product-analytics',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                id: {
-                  type: 'string',
-                  description: 'ID do recurso: dashboard-stats, sales-data, product-analytics'
-                }
-              },
-              required: ['id']
-            }
-          }
-        ]
-      };
-      
-    case 'tools/call':
-      const { name, arguments: args } = params;
-      
-      if (name === 'search') {
-        const searchResult = await handleSearch(args.query || '');
-        return {
-          content: searchResult.content
-        };
-      } else if (name === 'fetch') {
-        const fetchResult = await handleFetch(args.id || 'dashboard-stats');
-        return {
-          content: fetchResult.content
-        };
-      }
-      
-      return { error: 'Tool not found' };
-      
-    default:
-      return { error: 'Method not supported' };
-  }
-});
-
-// ---- FUNÇÕES DE HANDLE ----
-
-async function handleSearch(query) {
   try {
-    server.log.info(`🔍 Search query: "${query}"`);
+    const { jsonrpc, id, method, params } = request.body;
     
-    const salesData = await fetchSalesData(query);
-    
-    // Seguir especificação oficial ChatGPT MCP: apenas id, title, url
-    const results = salesData.map(item => ({
-      id: item.id || item.sku,
-      title: item.title || item.product || `Produto ${item.sku}`,
-      url: `${process.env.FRONTEND_URL || 'https://84f2dc65-b2d9-4485-b847-7c30018ead3c-00-3bqifa6y30a3j.picard.replit.dev'}/sales?sku=${item.sku}`
-    }));
-    
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({
-            results: results
-          })
-        }
-      ]
-    };
-  } catch (error) {
-    server.log.error('Erro no search:', error);
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({
-            error: 'Internal server error',
-            message: error.message
-          })
-        }
-      ]
-    };
-  }
-}
-
-async function handleFetch(id) {
-  try {
-    server.log.info(`📄 Fetch ID: "${id}"`);
-    
-    if (id === 'dashboard-stats') {
-      const salesData = await fetchSalesData('', 50);
-      
-      const marketplaces = {};
-      let totalRevenue = 0;
-      let totalUnits = 0;
-      
-      salesData.forEach(item => {
-        const marketplace = item.marketplace_code || 'Unknown';
-        if (!marketplaces[marketplace]) {
-          marketplaces[marketplace] = { revenue: 0, units: 0, products: 0 };
-        }
-        
-        marketplaces[marketplace].revenue += item.revenue || 0;
-        marketplaces[marketplace].units += item.units || 0;
-        marketplaces[marketplace].products += 1;
-        
-        totalRevenue += item.revenue || 0;
-        totalUnits += item.units || 0;
-      });
-      
-      const topProducts = salesData.slice(0, 10);
-      
-      // Seguir especificação oficial ChatGPT MCP: id, title, text, url, metadata
-      const result = {
-        id: 'dashboard-stats',
-        title: 'Análise Completa do Dashboard Amazon Seller',
-        text: `## Resumo Executivo
-- **Total de Revenue**: R$ ${totalRevenue.toFixed(2)}
-- **Total de Unidades Vendidas**: ${totalUnits}
-- **Total de Produtos**: ${salesData.length}
-
-## Performance por Marketplace
-${Object.entries(marketplaces).map(([marketplace, data]) => 
-  `### ${marketplace}
-- Revenue: R$ ${data.revenue.toFixed(2)}
-- Unidades: ${data.units}
-- Produtos: ${data.products}`
-).join('\n')}
-
-## Top 10 Produtos por Revenue
-${topProducts.map((product, i) => 
-  `${i+1}. **${product.title || product.product}** (${product.sku})
-   - Revenue: R$ ${(product.revenue || 0).toFixed(2)}
-   - Unidades: ${product.units || 0}
-   - Estoque: ${product.stock || 0}
-   - Marketplace: ${product.marketplace_code}`
-).join('\n')}
-
-## Insights e Recomendações
-- Produto com maior revenue: ${topProducts[0]?.title || 'N/A'}
-- Marketplace dominante: ${Object.entries(marketplaces).sort((a,b) => b[1].revenue - a[1].revenue)[0]?.[0] || 'N/A'}
-- Produtos com estoque baixo: ${salesData.filter(p => (p.stock || 0) < 10).length}`,
-        url: `${process.env.FRONTEND_URL || 'https://84f2dc65-b2d9-4485-b847-7c30018ead3c-00-3bqifa6y30a3j.picard.replit.dev'}/sales`,
-        metadata: {
-          type: 'dashboard_analysis',
-          generated_at: new Date().toISOString(),
-          total_products: salesData.length
-        }
-      };
-      
+    // Validar JSON-RPC 2.0
+    if (jsonrpc !== "2.0") {
       return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result)
-          }
-        ]
+        jsonrpc: "2.0",
+        id: id || null,
+        error: {
+          code: -32600,
+          message: "Invalid Request",
+          data: "jsonrpc must be '2.0'"
+        }
       };
     }
     
-    // Buscar produto específico por ID
-    const salesData = await fetchSalesData('', 100);
-    const product = salesData.find(item => item.id === id || item.sku === id || item.asin === id);
+    server.log.info(`🔗 MCP JSON-RPC: ${method}`);
     
-    if (!product) {
+    // Listar ferramentas disponíveis
+    if (method === "tools/list") {
       return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              id,
-              title: 'Produto não encontrado',
-              text: `Produto com ID "${id}" não foi encontrado nos dados de vendas.`,
-              url: `${process.env.FRONTEND_URL || 'https://84f2dc65-b2d9-4485-b847-7c30018ead3c-00-3bqifa6y30a3j.picard.replit.dev'}/sales`,
-              metadata: { error: 'not_found' }
-            })
-          }
-        ]
+        jsonrpc: "2.0",
+        id: id,
+        result: {
+          tools: [
+            {
+              name: "search",
+              description: "Buscar produtos e dados de vendas Amazon/ML",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  query: {
+                    type: "string",
+                    description: "Termo de busca: nome do produto, SKU, ASIN, ou marketplace"
+                  }
+                },
+                required: []
+              }
+            },
+            {
+              name: "fetch",
+              description: "Obter análise detalhada de um produto específico",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  id: {
+                    type: "string",
+                    description: "ID do produto, SKU, ASIN, ou 'dashboard-stats' para estatísticas gerais"
+                  }
+                },
+                required: ["id"]
+              }
+            }
+          ]
+        }
       };
     }
     
-    // Seguir especificação oficial ChatGPT MCP: id, title, text, url, metadata
-    const result = {
-      id: product.id,
-      title: `${product.title || product.product} - Análise Detalhada`,
-      text: `## Informações do Produto
-- **SKU**: ${product.sku}
-- **ASIN**: ${product.asin}
-- **Título**: ${product.title || product.product}
-- **Marketplace**: ${product.marketplace_code}
-
-## Performance de Vendas
-- **Revenue Total**: R$ ${(product.revenue || 0).toFixed(2)}
-- **Unidades Vendidas**: ${product.units || 0}
-- **Preço Médio**: R$ ${(product.price || 0).toFixed(2)}
-- **Total de Pedidos**: ${product.orders || 0}
-
-## Inventário e Logística
-- **Estoque Atual**: ${product.stock || 0} unidades
-- **Tipo de Fulfillment**: ${product.fulfillment_type || 'N/A'}
-- **Buy Box Winner**: ${product.buy_box_winner || 'N/A'}
-- **Número de Sellers**: ${product.sellers || 0}
-
-## Análise Financeira
-- **Profit**: ${product.profit ? `R$ ${product.profit.toFixed(2)}` : 'Não calculado'}
-- **ROI**: ${product.roi ? `${product.roi.toFixed(2)}%` : 'Não calculado'}
-- **ACOS**: ${product.acos ? `${product.acos.toFixed(2)}%` : 'Não calculado'}
-- **Health Status**: ${product.health || 'Unknown'}
-
-## Custos (se disponíveis)
-${product.costs ? `
-- **Custo de Compra**: ${product.costs.compra || 'Não informado'}
-- **Armazenagem**: ${product.costs.armazenagem || 'Não informado'}
-- **Frete Amazon**: ${product.costs.frete_amazon || 'Não informado'}
-- **Impostos**: ${product.costs.imposto_percent || 'Não informado'}
-` : '- Custos não configurados'}
-
-## Recomendações
-${(product.stock || 0) < 10 ? '⚠️ **ATENÇÃO**: Estoque baixo! Considere reabastecer.\n' : ''}
-${(product.health === 'poor') ? '❌ **ALERTA**: Performance ruim detectada.\n' : ''}
-${(product.revenue || 0) > 5000 ? '⭐ **DESTAQUE**: Este é um dos seus produtos top performers!\n' : ''}`,
-      url: `${process.env.FRONTEND_URL || 'https://84f2dc65-b2d9-4485-b847-7c30018ead3c-00-3bqifa6y30a3j.picard.replit.dev'}/sales?sku=${product.sku}`,
-      metadata: {
-        type: 'product_analysis',
-        sku: product.sku,
-        asin: product.asin,
-        marketplace: product.marketplace_code,
-        generated_at: new Date().toISOString()
+    // Executar ferramenta
+    if (method === "tools/call") {
+      const { name, arguments: args } = params || {};
+      
+      if (name === "search") {
+        const searchResponse = await server.inject({
+          method: 'POST',
+          url: '/search',
+          payload: { query: args?.query || '' }
+        });
+        
+        return {
+          jsonrpc: "2.0",
+          id: id,
+          result: JSON.parse(searchResponse.payload)
+        };
+      }
+      
+      if (name === "fetch") {
+        const fetchResponse = await server.inject({
+          method: 'POST',
+          url: '/fetch',
+          payload: { id: args?.id }
+        });
+        
+        return {
+          jsonrpc: "2.0",
+          id: id,
+          result: JSON.parse(fetchResponse.payload)
+        };
+      }
+      
+      return {
+        jsonrpc: "2.0",
+        id: id,
+        error: {
+          code: -32601,
+          message: "Method not found",
+          data: `Tool '${name}' não encontrada`
+        }
+      };
+    }
+    
+    return {
+      jsonrpc: "2.0",
+      id: id,
+      error: {
+        code: -32601,
+        message: "Method not found",
+        data: `Método '${method}' não suportado`
       }
     };
     
-    return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify(result)
-        }
-      ]
-    };
-    
   } catch (error) {
-    server.log.error('Erro no fetch:', error);
+    server.log.error('Erro JSON-RPC:', error);
     return {
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({
-            id: id || 'unknown',
-            title: 'Erro no servidor',
-            text: 'Ocorreu um erro interno do servidor ao buscar os dados.',
-            url: `${process.env.FRONTEND_URL || 'https://84f2dc65-b2d9-4485-b847-7c30018ead3c-00-3bqifa6y30a3j.picard.replit.dev'}/sales`,
-            metadata: { error: 'internal_server_error' }
-          })
-        }
-      ]
+      jsonrpc: "2.0",
+      id: request.body?.id || null,
+      error: {
+        code: -32603,
+        message: "Internal error",
+        data: error.message
+      }
     };
   }
-}
-
-/**
- * Health check endpoint
- */
-server.get('/health', async (request, reply) => {
-  return { 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    backend_url: BACKEND_URL
-  };
-});
-
-/**
- * Endpoint de informações do servidor MCP
- */
-server.get('/info', async (request, reply) => {
-  return {
-    name: 'Amazon Seller Dashboard MCP Server',
-    version: '1.0.0',
-    description: 'Servidor MCP para integração do ChatGPT com dados de vendas Amazon/ML',
-    tools: ['search', 'fetch'],
-    backend_url: BACKEND_URL,
-    timestamp: new Date().toISOString()
-  };
 });
 
 // Iniciar servidor
 const start = async () => {
   try {
     await server.listen({ 
-      port: MCP_SERVER_PORT, 
+      port: PORT, 
       host: '0.0.0.0' 
     });
     
-    server.log.info(`🚀 Amazon Seller MCP Server rodando na porta ${MCP_SERVER_PORT}`);
+    server.log.info(`🚀 Amazon Seller MCP Server rodando na porta ${PORT}`);
     server.log.info(`📊 Backend URL: ${BACKEND_URL}`);
-    server.log.info(`🔗 Health check: http://localhost:${MCP_SERVER_PORT}/health`);
-    server.log.info(`📝 Server info: http://localhost:${MCP_SERVER_PORT}/info`);
+    server.log.info(`🔗 MCP Endpoint: http://0.0.0.0:${PORT}/`);
     
   } catch (err) {
     server.log.error('Erro ao iniciar servidor:', err);
     process.exit(1);
   }
 };
+
+// Lidar com sinais de terminação
+process.on('SIGINT', async () => {
+  server.log.info('🛑 Encerrando MCP Server...');
+  await server.close();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  server.log.info('🛑 Encerrando MCP Server...');
+  await server.close();
+  process.exit(0);
+});
 
 start();

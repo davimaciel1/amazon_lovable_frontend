@@ -84,6 +84,35 @@ The system employs a multi-service architecture with specialized components:
 
 ## Recent Changes (September 2025)
 
+## MCP Servers for ChatGPT Integration (September 24, 2025)
+
+**COMPLETE MCP SYSTEM**: Successfully implemented two fully functional MCP (Model Context Protocol) servers for ChatGPT integration:
+
+### **MCP Server Principal (Port 8008)**
+- **Purpose**: Amazon and Mercado Livre sales data analysis
+- **URL**: https://84f2dc65-b2d9-4485-b847-7c30018ead3c-00-3bqifa6y30a3j.picard.replit.dev:8008/
+- **Tools**: `search` (find products/sales data), `fetch` (detailed product analysis/dashboard stats)
+- **Data**: Real sales data (R$ 55,657.93 revenue, 861 units sold, 12 active products)
+- **Protocol**: JSON-RPC 2.0 fully compliant for ChatGPT compatibility
+
+### **MCP Code Analysis Server (Port 6000)**
+- **Purpose**: Secure source code analysis and bug detection
+- **URL**: https://84f2dc65-b2d9-4485-b847-7c30018ead3c-00-3bqifa6y30a3j.picard.replit.dev:6000/
+- **Tools**: `search_code` (find files by name/pattern), `analyze_file` (detailed code analysis)
+- **Security**: Whitelist for safe directories (src folders only), blocks sensitive files (.env, .key)
+- **Protocol**: JSON-RPC 2.0 with structured responses and audit logging
+
+**TECHNICAL IMPLEMENTATION**:
+- Both servers use Fastify with CORS enabled for cross-origin requests
+- Proper error handling with JSON-RPC 2.0 error codes (-32600, -32601, -32603)
+- Structured text responses optimized for ChatGPT consumption
+- Real-time data integration with existing Amazon/ML APIs
+- Comprehensive security controls for code analysis server
+
+**USAGE**: Add both URLs to ChatGPT MCP settings for AI assistant access to sales analytics and secure code analysis capabilities.
+
+# Recent Changes (September 2025)
+
 ## MLB Code Data Integrity Fixes (September 24, 2025)
 
 **COMPREHENSIVE FIX**: Completely resolved all fabricated MLB codes and image display issues
