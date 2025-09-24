@@ -26,6 +26,10 @@ args = "Backend"
 task = "workflow.run"
 args = "MCP Server"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "MCP Code Analysis"
+
 [[workflows.workflow]]
 name = "Frontend"
 author = "agent"
@@ -62,9 +66,25 @@ task = "shell.exec"
 args = "cd mcp-server && node server.js"
 waitForPort = 8008
 
+[[workflows.workflow]]
+name = "MCP Code Analysis"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd mcp-code-analysis-server && node server.js"
+waitForPort = 6000
+
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 6000
+externalPort = 6000
 
 [[ports]]
 localPort = 8008
@@ -73,6 +93,10 @@ externalPort = 8008
 [[ports]]
 localPort = 8080
 externalPort = 8080
+
+[[ports]]
+localPort = 39265
+externalPort = 3000
 
 [deployment]
 deploymentTarget = "autoscale"
