@@ -430,12 +430,19 @@ async function handleSearch(query) {
     
     const salesData = await fetchSalesData(query);
     
+    // Seguir especificação oficial ChatGPT MCP: apenas id, title, url
+    const results = salesData.map(item => ({
+      id: item.id || item.sku,
+      title: item.title || item.product || `Produto ${item.sku}`,
+      url: `${process.env.FRONTEND_URL || 'https://84f2dc65-b2d9-4485-b847-7c30018ead3c-00-3bqifa6y30a3j.picard.replit.dev'}/sales?sku=${item.sku}`
+    }));
+    
     return {
       content: [
         {
           type: "text",
           text: JSON.stringify({
-            results: salesData
+            results: results
           })
         }
       ]
@@ -462,7 +469,6 @@ async function handleFetch(id) {
     
     if (id === 'dashboard-stats') {
       const salesData = await fetchSalesData('', 50);
-      const dashboardStats = await fetchDashboardStats();
       
       const marketplaces = {};
       let totalRevenue = 0;
@@ -484,11 +490,11 @@ async function handleFetch(id) {
       
       const topProducts = salesData.slice(0, 10);
       
+      // Seguir especificação oficial ChatGPT MCP: id, title, text, url, metadata
       const result = {
         id: 'dashboard-stats',
         title: 'Análise Completa do Dashboard Amazon Seller',
-        text: `
-## Resumo Executivo
+        text: `## Resumo Executivo
 - **Total de Revenue**: R$ ${totalRevenue.toFixed(2)}
 - **Total de Unidades Vendidas**: ${totalUnits}
 - **Total de Produtos**: ${salesData.length}
@@ -513,9 +519,8 @@ ${topProducts.map((product, i) =>
 ## Insights e Recomendações
 - Produto com maior revenue: ${topProducts[0]?.title || 'N/A'}
 - Marketplace dominante: ${Object.entries(marketplaces).sort((a,b) => b[1].revenue - a[1].revenue)[0]?.[0] || 'N/A'}
-- Produtos com estoque baixo: ${salesData.filter(p => (p.stock || 0) < 10).length}
-        `,
-        url: `${process.env.FRONTEND_URL || 'https://your-app.replit.dev'}/sales`,
+- Produtos com estoque baixo: ${salesData.filter(p => (p.stock || 0) < 10).length}`,
+        url: `${process.env.FRONTEND_URL || 'https://84f2dc65-b2d9-4485-b847-7c30018ead3c-00-3bqifa6y30a3j.picard.replit.dev'}/sales`,
         metadata: {
           type: 'dashboard_analysis',
           generated_at: new Date().toISOString(),
@@ -546,7 +551,7 @@ ${topProducts.map((product, i) =>
               id,
               title: 'Produto não encontrado',
               text: `Produto com ID "${id}" não foi encontrado nos dados de vendas.`,
-              url: `${process.env.FRONTEND_URL || 'https://your-app.replit.dev'}/sales`,
+              url: `${process.env.FRONTEND_URL || 'https://84f2dc65-b2d9-4485-b847-7c30018ead3c-00-3bqifa6y30a3j.picard.replit.dev'}/sales`,
               metadata: { error: 'not_found' }
             })
           }
@@ -554,12 +559,11 @@ ${topProducts.map((product, i) =>
       };
     }
     
-    // Análise detalhada do produto
+    // Seguir especificação oficial ChatGPT MCP: id, title, text, url, metadata
     const result = {
       id: product.id,
       title: `${product.title || product.product} - Análise Detalhada`,
-      text: `
-## Informações do Produto
+      text: `## Informações do Produto
 - **SKU**: ${product.sku}
 - **ASIN**: ${product.asin}
 - **Título**: ${product.title || product.product}
@@ -594,9 +598,8 @@ ${product.costs ? `
 ## Recomendações
 ${(product.stock || 0) < 10 ? '⚠️ **ATENÇÃO**: Estoque baixo! Considere reabastecer.\n' : ''}
 ${(product.health === 'poor') ? '❌ **ALERTA**: Performance ruim detectada.\n' : ''}
-${(product.revenue || 0) > 5000 ? '⭐ **DESTAQUE**: Este é um dos seus produtos top performers!\n' : ''}
-      `,
-      url: `${process.env.FRONTEND_URL || 'https://your-app.replit.dev'}/sales?sku=${product.sku}`,
+${(product.revenue || 0) > 5000 ? '⭐ **DESTAQUE**: Este é um dos seus produtos top performers!\n' : ''}`,
+      url: `${process.env.FRONTEND_URL || 'https://84f2dc65-b2d9-4485-b847-7c30018ead3c-00-3bqifa6y30a3j.picard.replit.dev'}/sales?sku=${product.sku}`,
       metadata: {
         type: 'product_analysis',
         sku: product.sku,
@@ -625,7 +628,7 @@ ${(product.revenue || 0) > 5000 ? '⭐ **DESTAQUE**: Este é um dos seus produto
             id: id || 'unknown',
             title: 'Erro no servidor',
             text: 'Ocorreu um erro interno do servidor ao buscar os dados.',
-            url: `${process.env.FRONTEND_URL || 'https://your-app.replit.dev'}/sales`,
+            url: `${process.env.FRONTEND_URL || 'https://84f2dc65-b2d9-4485-b847-7c30018ead3c-00-3bqifa6y30a3j.picard.replit.dev'}/sales`,
             metadata: { error: 'internal_server_error' }
           })
         }
