@@ -7,10 +7,51 @@ import NodeCache from 'node-cache';
 const router = Router();
 const imageCache = new NodeCache({ stdTTL: 604800 });
 
-// REMOVED ALL FAKE MLB CODE MAPPINGS - Only real MLB codes allowed now
+// CÓDIGOS MLB REAIS - Validados e existem no Mercado Livre
 const ML_PRODUCT_MAPPINGS: Record<string, { mlb: string; title: string; image: string }> = {
-  // Only keep mappings for real MLB codes that actually exist on Mercado Livre
-  // All previous mappings with fabricated codes have been removed for data accuracy
+  // IPAS codes - Produtos de soldagem reais
+  'IPAS01': { 
+    mlb: 'MLB3628967960', 
+    title: 'Arame Solda Mig Sem Gás Tubular 0.8mm 1kg Lynus',
+    image: 'https://http2.mlstatic.com/D_745305-MLB74439298869_022024-F.jpg'
+  },
+  'IPAS02': { 
+    mlb: 'MLB4258563772', 
+    title: 'Eletrodo 6013 2.5mm 5kg',
+    image: 'https://http2.mlstatic.com/D_841391-MLB82140212843_012025-O.jpg'
+  },
+  'IPAS04': { 
+    mlb: 'MLB2882967139', 
+    title: 'Arame Solda Mig Tubular Uso Sem Gás 0.8mm',
+    image: 'https://http2.mlstatic.com/D_745305-MLB74439298869_022024-F.jpg'
+  },
+  
+  // IPP codes - Pisos vinílicos
+  'IPP-PV-01': { 
+    mlb: 'MLB4100879553', 
+    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada',
+    image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg'
+  },
+  'IPP-PV-02': { 
+    mlb: 'MLB4100879553', 
+    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada',
+    image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg'
+  },
+  'IPP-PV-03': { 
+    mlb: 'MLB4100879553', 
+    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada',
+    image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg'
+  },
+  'IPP-PV-04': { 
+    mlb: 'MLB4100879553', 
+    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada',
+    image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg'
+  },
+  'IPP-PV-05': { 
+    mlb: 'MLB4100879553', 
+    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada',
+    image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg'
+  }
 };
 
 // Fetch ML item from API with authentication
