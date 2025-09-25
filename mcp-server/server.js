@@ -439,6 +439,24 @@ server.post('/', async (request, reply) => {
     
     server.log.info(`🔗 MCP JSON-RPC: ${method}`);
     
+    // Inicializar servidor MCP
+    if (method === "initialize") {
+      return {
+        jsonrpc: "2.0",
+        id: id,
+        result: {
+          protocolVersion: "2024-11-05",
+          capabilities: {
+            tools: {}
+          },
+          serverInfo: {
+            name: "Amazon Seller Dashboard MCP Server",
+            version: "1.0.0"
+          }
+        }
+      };
+    }
+    
     // Listar ferramentas disponíveis
     if (method === "tools/list") {
       return {

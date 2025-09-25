@@ -392,17 +392,20 @@ server.post('/', async (request, reply) => {
     
     switch (method) {
       case 'initialize':
-        result = {
-          protocolVersion: '2024-11-05',
-          capabilities: {
-            tools: {}
-          },
-          serverInfo: {
-            name: 'Amazon Seller Dashboard Code Analysis',
-            version: '1.0.0'
+        return {
+          jsonrpc: '2.0',
+          id: id,
+          result: {
+            protocolVersion: '2024-11-05',
+            capabilities: {
+              tools: {}
+            },
+            serverInfo: {
+              name: 'Amazon Seller Dashboard Code Analysis',
+              version: '1.0.0'
+            }
           }
         };
-        break;
         
       case 'tools/list':
         result = {
