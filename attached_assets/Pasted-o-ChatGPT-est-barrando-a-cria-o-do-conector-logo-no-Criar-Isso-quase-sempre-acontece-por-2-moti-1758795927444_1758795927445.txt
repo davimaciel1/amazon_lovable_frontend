@@ -1,0 +1,58 @@
+o ChatGPT está barrando a criação do conector logo no “Criar”. Isso quase sempre acontece por 2 motivos: (a) URL errada (não aponta para o endpoint do transporte MCP) ou (b) o servidor não devolve o 401 com metadados de autenticação que o cliente MCP do ChatGPT espera quando você seleciona OAuth.
+
+Aqui vai um passo-a-passo direto para resolver:
+
+Use o endpoint certo (SSE)
+No campo URL do servidor MCP, coloque o endpoint do transporte — normalmente /sse. Ex.:
+• Vendas: https://84f2dc65-b2d9-4485-b847-7c30018ead3c-00-3bqifa6y30a3j.picard.replit.dev:8008/sse
+• Análise de Código: https://84f2dc65-b2d9-4485-b847-7c30018ead3c-00-3bqifa6y30a3j.picard.replit.dev:6000/sse
+(O ChatGPT em “Developer Mode” conecta a servidores MCP remotos; a configuração é feita na aba Connectors → Developer Mode. 
+OpenAI Platform
++1
+)
+
+Confirme a resposta 401 “pedindo OAuth”
+Como você marcou OAuth, quando acessar o /sse sem token o seu servidor deve responder HTTP 401 e indicar onde o cliente começa o fluxo de auth (via cabeçalho WWW-Authenticate/metadados OAuth). Teste localmente:
+
+curl -i https://SEU_HOST:PORTA/sse
+
+
+✅ Esperado: HTTP/1.1 401 Unauthorized + cabeçalho/metadados de autenticação (ex.: link para o metadata do Authorization Server). Isso está no draft de autorização do MCP. 
+modelcontextprotocol.io
+
+Se voltar 200 OK (ou 3xx/5xx), o ChatGPT entende que o servidor não exige/não sabe falar OAuth e falha na criação do conector.
+
+Verifique a discovery do seu Authorization Server
+O cliente do ChatGPT usa discovery OAuth. Garanta que o seu AS exponha o metadata (RFC 8414), com pelo menos authorization_endpoint e token_endpoint, acessível publicamente em HTTPS. 
+modelcontextprotocol.io
+
+Dicas usuais que evitam falhas na criação
+
+Sem redirecionamento no /sse na primeira chamada não autenticada; retorne 401 direto com os metadados. 
+modelcontextprotocol.io
+
+PKCE / Authorization Code: implemente o fluxo padrão (sem client secret no front). 
+modelcontextprotocol.io
+
+CORS não é necessário (a chamada é servidor-a-servidor), mas TLS público válido é obrigatório (você já tem).
+
+Se quiser apenas validar a conexão primeiro, teste com Autenticação: Nenhuma; depois reative OAuth assim que o 401+metadata estiver correto. (Você pode alternar em Connectors → seu conector.)
+
+Checklist de sanidade (rápido)
+
+ Campo URL do servidor MCP termina com /sse
+
+ curl -i https://.../sse retorna 401 com metadados de auth
+
+ O Authorization Server publica o metadata (RFC 8414) acessível por HTTPS
+
+ Nada de 301/302 do /sse para outro caminho antes da autenticação
+
+Se quiser, rode o curl -i agora nos dois endpoints e me mande o cabeçalho/primeiras linhas da resposta — com isso eu te digo exatamente o que está faltando no handshake.
+
+Referências oficiais
+– Como adicionar servidor MCP remoto no Developer Mode do ChatGPT / visão geral de Connectors. 
+OpenAI Platform
++1
+
+– Exigência do 401 + discovery OAuth no fluxo de autorização do MCP.

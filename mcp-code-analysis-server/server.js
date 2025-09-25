@@ -227,7 +227,10 @@ server.get('/', async (request, reply) => {
  * Endpoint de configuração OAuth para descoberta automática
  */
 server.get('/.well-known/oauth-authorization-server', async (request, reply) => {
-  const baseUrl = `${request.protocol}://${request.hostname}${request.port && request.port !== '80' && request.port !== '443' ? ':' + request.port : ''}`;
+  // Construir URL pública correta para Replit
+  const protocol = request.headers['x-forwarded-proto'] || 'https';
+  const host = request.headers.host || request.hostname;
+  const baseUrl = `${protocol}://${host}`;
   reply.type('application/json').send({
     issuer: baseUrl,
     authorization_endpoint: `${baseUrl}/oauth/authorize`,
@@ -240,7 +243,10 @@ server.get('/.well-known/oauth-authorization-server', async (request, reply) => 
 });
 
 server.get('/.well-known/openid-configuration', async (request, reply) => {
-  const baseUrl = `${request.protocol}://${request.hostname}${request.port && request.port !== '80' && request.port !== '443' ? ':' + request.port : ''}`;
+  // Construir URL pública correta para Replit
+  const protocol = request.headers['x-forwarded-proto'] || 'https';
+  const host = request.headers.host || request.hostname;
+  const baseUrl = `${protocol}://${host}`;
   reply.type('application/json').send({
     issuer: baseUrl,
     authorization_endpoint: `${baseUrl}/oauth/authorize`,
@@ -253,7 +259,10 @@ server.get('/.well-known/openid-configuration', async (request, reply) => {
 });
 
 server.get('/.well-known/oauth-protected-resource', async (request, reply) => {
-  const baseUrl = `${request.protocol}://${request.hostname}${request.port && request.port !== '80' && request.port !== '443' ? ':' + request.port : ''}`;
+  // Construir URL pública correta para Replit
+  const protocol = request.headers['x-forwarded-proto'] || 'https';
+  const host = request.headers.host || request.hostname;
+  const baseUrl = `${protocol}://${host}`;
   reply.type('application/json').send({
     resource: baseUrl,
     scopes_supported: ['read'],
@@ -295,6 +304,62 @@ server.post('/oauth/token', async (request, reply) => {
     expires_in: 3600,
     scope: 'read'
   });
+});
+
+// ---- ENDPOINT SSE PARA CHATGPT MCP ----
+
+/**
+ * Endpoint SSE (Server-Sent Events) para ChatGPT MCP client
+ * Retorna 401 com WWW-Authenticate quando não autenticado
+ */
+server.get('/sse', async (request, reply) => {
+  // Verificar Authorization header
+  const authHeader = request.headers.authorization;
+  // Construir URL pública correta para Replit
+  const protocol = request.headers['x-forwarded-proto'] || 'https';
+  const host = request.headers.host || request.hostname;
+  const baseUrl = `${protocol}://${host}`;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Retornar 401 com metadados OAuth conforme RFC 8414
+    reply.code(401)
+      .header('WWW-Authenticate', `Bearer realm="mcp", authorization_uri="${baseUrl}/oauth/authorize", token_uri="${baseUrl}/oauth/token"`)
+      .header('Content-Type', 'application/json')
+      .send({
+        error: 'unauthorized',
+        error_description: 'Authorization required for MCP code analysis access',
+        oauth: {
+          authorization_endpoint: `${baseUrl}/oauth/authorize`,
+          token_endpoint: `${baseUrl}/oauth/token`,
+          discovery: `${baseUrl}/.well-known/oauth-authorization-server`
+        }
+      });
+    return;
+  }
+  
+  // Token presente - implementar SSE stream
+  reply.type('text/event-stream')
+    .header('Cache-Control', 'no-cache')
+    .header('Connection', 'keep-alive')
+    .header('Access-Control-Allow-Origin', '*')
+    .header('Access-Control-Allow-Headers', 'Authorization');
+  
+  // Enviar evento de inicialização MCP
+  reply.raw.write('event: mcp-ready\n');
+  reply.raw.write('data: {"protocol":"mcp","version":"1.0.0","server":"Code Analysis"}\n\n');
+  
+  // Manter conexão viva
+  const keepAlive = setInterval(() => {
+    reply.raw.write('event: ping\n');
+    reply.raw.write('data: {"timestamp":"' + new Date().toISOString() + '"}\n\n');
+  }, 30000);
+  
+  request.raw.on('close', () => {
+    clearInterval(keepAlive);
+    server.log.info('🔌 SSE connection closed');
+  });
+  
+  server.log.info('🔗 SSE connection established for MCP Code Analysis');
 });
 
 /**
