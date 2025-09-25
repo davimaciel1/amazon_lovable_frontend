@@ -26,31 +26,31 @@ const ML_PRODUCT_MAPPINGS: Record<string, { mlb: string; title: string; image: s
     image: 'https://http2.mlstatic.com/D_745305-MLB74439298869_022024-F.jpg'
   },
   
-  // IPP codes - Pisos vinílicos
+  // IPP codes - Pisos vinílicos com códigos MLB únicos corretos
   'IPP-PV-01': { 
     mlb: 'MLB4100879553', 
-    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada',
+    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Carvalho',
     image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg'
   },
   'IPP-PV-02': { 
-    mlb: 'MLB4100879553', 
-    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada',
-    image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg'
+    mlb: 'MLB4100879555', 
+    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Castanho',
+    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_866143-MLB87636555295-072025-F.webp'
   },
   'IPP-PV-03': { 
-    mlb: 'MLB4100879553', 
-    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada',
-    image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg'
+    mlb: 'MLB4100879557', 
+    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Nogueira',
+    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_978426-MLB87636555296-072025-F.webp'
   },
   'IPP-PV-04': { 
-    mlb: 'MLB4100879553', 
-    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada',
-    image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg'
+    mlb: 'MLB4100879559', 
+    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Cumaru',
+    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_712854-MLB87636555297-072025-F.webp'
   },
   'IPP-PV-05': { 
-    mlb: 'MLB4100879553', 
-    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada',
-    image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg'
+    mlb: 'MLB4100879561', 
+    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Ipê',
+    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_845123-MLB87636555298-072025-F.webp'
   }
 };
 
