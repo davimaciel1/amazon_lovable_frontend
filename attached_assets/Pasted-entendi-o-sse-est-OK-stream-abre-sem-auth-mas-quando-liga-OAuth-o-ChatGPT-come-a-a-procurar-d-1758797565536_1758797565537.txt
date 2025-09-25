@@ -1,0 +1,157 @@
+entendi — o /sse está OK (stream abre sem auth), mas quando liga OAuth o ChatGPT começa a procurar discovery em caminhos “com /sse colado”. Dá pra contornar isso com um “shim de compatibilidade” bem simples. Segue um plano direto + exemplos de código.
+
+O que está acontecendo
+
+Quando você configura o conector com a URL https://host:porta/sse, o cliente do ChatGPT:
+
+tenta descobrir metadados em ambos os lugares (raiz e sob /sse), por isso você vê:
+
+/.well-known/oauth-protected-resource/sse
+
+/.well-known/oauth-authorization-server/sse
+
+/sse/.well-known/openid-configuration
+
+se qualquer um desses der 404, alguns builds falham a criação do conector.
+
+Correção prática (compat shim)
+
+Implemente endpoints espelhados (sem redirecionar) para todos os caminhos abaixo, servindo o mesmo JSON:
+
+Authorization Server (AS)
+
+/.well-known/oauth-authorization-server
+
+/.well-known/openid-configuration (alias útil)
+
+/sse/.well-known/oauth-authorization-server
+
+/sse/.well-known/openid-configuration
+
+/.well-known/oauth-authorization-server/sse (sirva o mesmo JSON; evite 3xx)
+
+Protected Resource (PR)
+
+/.well-known/oauth-protected-resource
+
+/sse/.well-known/oauth-protected-resource
+
+/.well-known/oauth-protected-resource/sse
+
+Observação: para o /sse em si, mantenha o comportamento atual:
+sem token → 401 (sem redirecionar), com token → 200 event-stream.
+
+Cabeçalhos úteis no 401 do /sse
+
+Além do WWW-Authenticate: Bearer (mínimo), inclua Link apontando pros metadados (ajuda o cliente a se achar):
+
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer realm="mcp"
+Link: <https://SEU_HOST/.well-known/oauth-authorization-server>; rel="oauth2-authorization-server", <https://SEU_HOST/.well-known/oauth-protected-resource>; rel="oauth2-protected-resource"
+Content-Length: 0
+
+Exemplos rápidos
+Node/Express (shim + 401 correto)
+import express from "express";
+const app = express();
+
+const asMetadata = {
+  issuer: "https://SEU_HOST",            // sem /sse
+  authorization_endpoint: "https://AUTH_HOST/oauth2/authorize",
+  token_endpoint: "https://AUTH_HOST/oauth2/token",
+  response_types_supported: ["code"],
+  grant_types_supported: ["authorization_code", "refresh_token"],
+  code_challenge_methods_supported: ["S256"],
+  token_endpoint_auth_methods_supported: ["none"], // PKCE puro
+  scopes_supported: ["openid", "offline_access", "mcp:invoke"]
+};
+
+const prMetadata = {
+  resource: "https://SEU_HOST",          // identificador do recurso protegido
+  authorization_servers: ["https://AUTH_HOST"] // onde obter tokens
+};
+
+// ---- AS metadata (todos os caminhos “esquisitos”)
+const asPaths = [
+  "/.well-known/oauth-authorization-server",
+  "/.well-known/openid-configuration",
+  "/sse/.well-known/oauth-authorization-server",
+  "/sse/.well-known/openid-configuration",
+  "/.well-known/oauth-authorization-server/sse"
+];
+asPaths.forEach(p => app.get(p, (_req, res) => res.json(asMetadata)));
+
+// ---- PR metadata (espelhar também)
+const prPaths = [
+  "/.well-known/oauth-protected-resource",
+  "/sse/.well-known/oauth-protected-resource",
+  "/.well-known/oauth-protected-resource/sse"
+];
+prPaths.forEach(p => app.get(p, (_req, res) => res.json(prMetadata)));
+
+// ---- SSE endpoint
+app.get("/sse", (req, res) => {
+  const auth = req.headers["authorization"];
+  if (!auth) {
+    res.set("WWW-Authenticate", 'Bearer realm="mcp"');
+    res.set(
+      "Link",
+      '<https://SEU_HOST/.well-known/oauth-authorization-server>; rel="oauth2-authorization-server", ' +
+      '<https://SEU_HOST/.well-known/oauth-protected-resource>; rel="oauth2-protected-resource"'
+    );
+    return res.status(401).end();
+  }
+  // ... validar token e iniciar o stream
+  res.set("Content-Type", "text/event-stream");
+  res.set("Cache-Control", "no-cache");
+  res.flushHeaders();
+  res.write(`event: ready\ndata: {}\n\n`);
+});
+app.listen(8008);
+
+NGINX (mapear aliases sem redirecionar)
+# AS metadata (serve o mesmo arquivo/json)
+location = /.well-known/oauth-authorization-server      { alias /var/www/as.json; default_type application/json; }
+location = /.well-known/openid-configuration            { alias /var/www/as.json; default_type application/json; }
+location = /sse/.well-known/oauth-authorization-server  { alias /var/www/as.json; default_type application/json; }
+location = /sse/.well-known/openid-configuration        { alias /var/www/as.json; default_type application/json; }
+location = /.well-known/oauth-authorization-server/sse  { alias /var/www/as.json; default_type application/json; }
+
+# PR metadata
+location = /.well-known/oauth-protected-resource        { alias /var/www/pr.json; default_type application/json; }
+location = /sse/.well-known/oauth-protected-resource    { alias /var/www/pr.json; default_type application/json; }
+location = /.well-known/oauth-protected-resource/sse    { alias /var/www/pr.json; default_type application/json; }
+
+# /sse 401 sem redir
+location = /sse {
+  if ($http_authorization = "") {
+    add_header WWW-Authenticate 'Bearer realm="mcp"' always;
+    add_header Link '<https://SEU_HOST/.well-known/oauth-authorization-server>; rel="oauth2-authorization-server", <https://SEU_HOST/.well-known/oauth-protected-resource>; rel="oauth2-protected-resource"' always;
+    return 401;
+  }
+  proxy_set_header Connection '';
+  proxy_http_version 1.1;
+  proxy_pass http://backend_sse;
+}
+
+Checklist final
+
+ URL no modal termina com /sse (sem redir).
+
+ 401 no /sse sem token, com WWW-Authenticate e Link.
+
+ Metadados disponíveis em raiz e em /sse (sem 404, sem 3xx).
+
+ issuer sem /sse.
+
+ PKCE (S256) habilitado; sem client_secret (use token_endpoint_auth_methods_supported: ["none"]).
+
+Se quiser, me mande o header completo de:
+
+curl -i https://SEU_HOST:8008/sse
+curl -i https://SEU_HOST:8008/.well-known/oauth-authorization-server
+curl -i https://SEU_HOST:8008/.well-known/oauth-protected-resource
+curl -i https://SEU_HOST:8008/sse/.well-known/openid-configuration
+
+
+Com esses quatro eu te digo exatamente se falta algum alias/campo ou se o 401/links já estão no ponto.

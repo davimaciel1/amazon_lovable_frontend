@@ -224,49 +224,61 @@ server.get('/', async (request, reply) => {
 // ---- ENDPOINTS OAUTH PARA COMPATIBILIDADE COM CHATGPT ----
 
 /**
- * Endpoint de configuração OAuth para descoberta automática
+ * Função auxiliar para construir metadados OAuth
  */
-server.get('/.well-known/oauth-authorization-server', async (request, reply) => {
-  // Construir URL pública correta para Replit
+function getOAuthMetadata(request, type = 'as') {
   const protocol = request.headers['x-forwarded-proto'] || 'https';
   const host = request.headers.host || request.hostname;
   const baseUrl = `${protocol}://${host}`;
-  reply.type('application/json').send({
-    issuer: baseUrl,
-    authorization_endpoint: `${baseUrl}/oauth/authorize`,
-    token_endpoint: `${baseUrl}/oauth/token`,
-    response_types_supported: ['code'],
-    grant_types_supported: ['authorization_code'],
-    scopes_supported: ['read'],
-    token_endpoint_auth_methods_supported: ['none']
+  
+  if (type === 'as') {
+    return {
+      issuer: baseUrl,  // sem /sse
+      authorization_endpoint: `${baseUrl}/oauth/authorize`,
+      token_endpoint: `${baseUrl}/oauth/token`,
+      response_types_supported: ['code'],
+      grant_types_supported: ['authorization_code'], // Somente o que implementamos
+      code_challenge_methods_supported: ['S256'],
+      token_endpoint_auth_methods_supported: ['none'], // PKCE puro
+      scopes_supported: ['read'] // Somente o scope que realmente emitimos
+    };
+  } else {
+    return {
+      resource: baseUrl,  // identificador do recurso protegido
+      authorization_servers: [baseUrl], // onde obter tokens
+      scopes_supported: ['read'], // Alinhado com AS metadata
+      bearer_methods_supported: ['header']
+    };
+  }
+}
+
+// ===== SHIMS DE COMPATIBILIDADE OAUTH PARA CHATGPT =====
+
+// Authorization Server (AS) metadata em TODOS os caminhos que ChatGPT pode tentar
+const asPaths = [
+  '/.well-known/oauth-authorization-server',
+  '/.well-known/openid-configuration',
+  '/sse/.well-known/oauth-authorization-server',
+  '/sse/.well-known/openid-configuration',
+  '/.well-known/oauth-authorization-server/sse'
+];
+
+asPaths.forEach(path => {
+  server.get(path, async (request, reply) => {
+    reply.type('application/json').send(getOAuthMetadata(request, 'as'));
   });
 });
 
-server.get('/.well-known/openid-configuration', async (request, reply) => {
-  // Construir URL pública correta para Replit
-  const protocol = request.headers['x-forwarded-proto'] || 'https';
-  const host = request.headers.host || request.hostname;
-  const baseUrl = `${protocol}://${host}`;
-  reply.type('application/json').send({
-    issuer: baseUrl,
-    authorization_endpoint: `${baseUrl}/oauth/authorize`,
-    token_endpoint: `${baseUrl}/oauth/token`,
-    response_types_supported: ['code'],
-    grant_types_supported: ['authorization_code'],
-    scopes_supported: ['read'],
-    token_endpoint_auth_methods_supported: ['none']
-  });
-});
+// Protected Resource (PR) metadata em todos os caminhos
+const prPaths = [
+  '/.well-known/oauth-protected-resource',
+  '/sse/.well-known/oauth-protected-resource',
+  '/.well-known/oauth-protected-resource/sse'
+];
 
-server.get('/.well-known/oauth-protected-resource', async (request, reply) => {
-  // Construir URL pública correta para Replit
-  const protocol = request.headers['x-forwarded-proto'] || 'https';
-  const host = request.headers.host || request.hostname;
-  const baseUrl = `${protocol}://${host}`;
-  reply.type('application/json').send({
-    resource: baseUrl,
-    scopes_supported: ['read'],
-    bearer_methods_supported: ['header']
+prPaths.forEach(path => {
+  server.get(path, async (request, reply) => {
+    reply.type('application/json').send(getOAuthMetadata(request, 'pr'));
   });
 });
 
@@ -321,19 +333,12 @@ server.get('/sse', async (request, reply) => {
   const baseUrl = `${protocol}://${host}`;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    // Retornar 401 com metadados OAuth conforme RFC 8414 e MCP specs
+    // 401 otimizado para compatibilidade ChatGPT com cabeçalhos Link
     reply.code(401)
-      .header('WWW-Authenticate', `Bearer realm="mcp", authorization_uri="${baseUrl}/oauth/authorize", token_uri="${baseUrl}/oauth/token"`)
-      .header('Content-Type', 'application/json')
-      .send({
-        error: 'unauthorized',
-        error_description: 'Authorization required for MCP code analysis access',
-        oauth: {
-          authorization_endpoint: `${baseUrl}/oauth/authorize`,
-          token_endpoint: `${baseUrl}/oauth/token`,
-          discovery: `${baseUrl}/.well-known/oauth-authorization-server`
-        }
-      });
+      .header('WWW-Authenticate', 'Bearer realm="mcp"')
+      .header('Link', `<${baseUrl}/.well-known/oauth-authorization-server>; rel="oauth2-authorization-server", <${baseUrl}/.well-known/oauth-protected-resource>; rel="oauth2-protected-resource"`)
+      .header('Content-Length', '0')
+      .send();
     return;
   }
   
