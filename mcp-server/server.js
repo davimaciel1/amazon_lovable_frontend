@@ -369,7 +369,7 @@ server.get('/sse', async (request, reply) => {
   const baseUrl = `${protocol}://${host}`;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    // Retornar 401 com metadados OAuth conforme RFC 8414
+    // Retornar 401 com metadados OAuth conforme RFC 8414 e MCP specs
     reply.code(401)
       .header('WWW-Authenticate', `Bearer realm="mcp", authorization_uri="${baseUrl}/oauth/authorize", token_uri="${baseUrl}/oauth/token"`)
       .header('Content-Type', 'application/json')

@@ -1,0 +1,53 @@
+oa! 👏 se os dois servidores agora têm /sse, TLS e OAuth, mas o modal ainda mostra “Erro ao criar conector”, normalmente falta um detalhe do handshake OAuth do MCP. Faz assim, na ordem — é tiro-certo:
+
+confirme o endpoint exato
+No campo URL do servidor MCP, use o transporte SSE:
+https://…:8008/sse e https://…:6000/sse. (É esse caminho que o Developer mode do ChatGPT tenta abrir.) 
+Plataforma OpenAI
++1
+
+teste o que o ChatGPT recebe ao abrir o /sse sem token
+Rode localmente (no seu terminal):
+
+curl -i -H "Accept: text/event-stream" https://SEU_HOST:PORTA/sse
+
+
+✅ Esperado: HTTP/1.1 401 Unauthorized + cabeçalho/metadados de autenticação (ex.: WWW-Authenticate: Bearer …) apontando para o seu Authorization Server. O cliente MCP descobre o servidor de autorização via discovery padronizado. 
+Plataforma OpenAI
++1
+
+valide os endpoints “well-known”
+Seu MCP server precisa publicar o Protected Resource Metadata e informar onde fica o Authorization Server. Verifique que estes URLs respondem 200 com JSON válido:
+
+https://SEU_HOST/.well-known/oauth-protected-resource
+
+E, no Authorization Server: /.well-known/oauth-authorization-server ou /.well-known/openid-configuration. (O cliente usa esses metadados para saber authorization_endpoint, token_endpoint, etc.) 
+modelcontextprotocol.io
+
+após autenticar, confira o SSE “de verdade”
+Com um Bearer token válido, o /sse deve devolver 200 com Content-Type: text/event-stream e manter a conexão aberta para o JSON-RPC. (É o transporte padrão para servidores MCP remotos.) 
+modelcontextprotocol.io
+
+registro dinâmico do cliente (seu AS permitir)
+O fluxo funciona melhor quando o Authorization Server aceita Dynamic Client Registration; é a recomendação nas diretrizes do MCP para servidores remotos usados no ChatGPT Dev Mode. 
+Plataforma OpenAI
+
+plano B para isolar o problema
+No mesmo modal, mude Autenticação → Nenhuma só para testar a criação.
+
+Se criar com sucesso, o problema está 100% no passo 2/3 (401 + discovery).
+
+Se ainda falhar, é quase sempre URL ou porta (ex.: faltou o /sse). 
+Plataforma OpenAI
+
+dica olhando seu print
+No print não dá para ver o final do campo de URL — confirme que ele termina em /sse (barra incluída). Um redirecionamento 301/302 no /sse também costuma quebrar a criação; devolva 401 direto sem redir. 
+modelcontextprotocol.io
+
+se quiser, mande aqui os primeiros ~20 headers das respostas a:
+
+curl -i https://SEU_HOST:8008/.well-known/oauth-protected-resource
+curl -i https://SEU_HOST:8008/sse
+
+
+Com isso te digo exatamente o que ajustar (nome de cabeçalho, JSON de metadata ou path).
