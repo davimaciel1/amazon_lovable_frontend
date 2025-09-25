@@ -111,6 +111,28 @@ The system employs a multi-service architecture with specialized components:
 
 **USAGE**: Add both URLs to ChatGPT MCP settings for AI assistant access to sales analytics and secure code analysis capabilities.
 
+### **OAuth Compatibility Shims (September 25, 2025)**
+**COMPLETE CHATGPT COMPATIBILITY**: Successfully implemented OAuth discovery shims to resolve ChatGPT MCP integration issues:
+
+**Problem Solved**: ChatGPT Developer Mode was making OAuth discovery requests to unusual URL patterns that returned 404 errors:
+- `/.well-known/oauth-protected-resource/sse`
+- `/.well-known/oauth-authorization-server/sse` 
+- `/sse/.well-known/openid-configuration`
+
+**Solution Implemented**: OAuth discovery shims serving identical metadata across all possible discovery paths:
+- **AS Metadata Endpoints**: 5 paths covering all ChatGPT discovery patterns
+- **PR Metadata Endpoints**: 3 paths for protected resource discovery
+- **RFC 8414 Compliance**: Metadata accurately reflects only implemented features (`authorization_code` grant, `read` scope)
+- **Enhanced SSE 401**: Optimized with proper `WWW-Authenticate` and `Link` headers for OAuth guidance
+
+**Technical Details**:
+- All endpoints return HTTP 200 (no more 404 errors blocking connector creation)
+- Metadata consistency across Authorization Server and Protected Resource specifications
+- PKCE (S256) support with `token_endpoint_auth_methods_supported: ["none"]`
+- Accurate scope advertisement matching actual token issuance
+
+**RESULT**: Both MCP servers now fully compatible with ChatGPT OAuth handshake process, eliminating connectivity issues that prevented proper MCP connector setup.
+
 # Recent Changes (September 2025)
 
 ## MLB Code Data Integrity Fixes (September 24, 2025)
