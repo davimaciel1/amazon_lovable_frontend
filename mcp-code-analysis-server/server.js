@@ -221,6 +221,82 @@ server.get('/', async (request, reply) => {
   };
 });
 
+// ---- ENDPOINTS OAUTH PARA COMPATIBILIDADE COM CHATGPT ----
+
+/**
+ * Endpoint de configuração OAuth para descoberta automática
+ */
+server.get('/.well-known/oauth-authorization-server', async (request, reply) => {
+  const baseUrl = `${request.protocol}://${request.hostname}${request.port && request.port !== '80' && request.port !== '443' ? ':' + request.port : ''}`;
+  reply.type('application/json').send({
+    issuer: baseUrl,
+    authorization_endpoint: `${baseUrl}/oauth/authorize`,
+    token_endpoint: `${baseUrl}/oauth/token`,
+    response_types_supported: ['code'],
+    grant_types_supported: ['authorization_code'],
+    scopes_supported: ['read'],
+    token_endpoint_auth_methods_supported: ['none']
+  });
+});
+
+server.get('/.well-known/openid-configuration', async (request, reply) => {
+  const baseUrl = `${request.protocol}://${request.hostname}${request.port && request.port !== '80' && request.port !== '443' ? ':' + request.port : ''}`;
+  reply.type('application/json').send({
+    issuer: baseUrl,
+    authorization_endpoint: `${baseUrl}/oauth/authorize`,
+    token_endpoint: `${baseUrl}/oauth/token`,
+    response_types_supported: ['code'],
+    grant_types_supported: ['authorization_code'],
+    scopes_supported: ['read'],
+    token_endpoint_auth_methods_supported: ['none']
+  });
+});
+
+server.get('/.well-known/oauth-protected-resource', async (request, reply) => {
+  const baseUrl = `${request.protocol}://${request.hostname}${request.port && request.port !== '80' && request.port !== '443' ? ':' + request.port : ''}`;
+  reply.type('application/json').send({
+    resource: baseUrl,
+    scopes_supported: ['read'],
+    bearer_methods_supported: ['header']
+  });
+});
+
+// Endpoints OAuth básicos para ChatGPT
+server.get('/oauth/authorize', async (request, reply) => {
+  const { client_id, redirect_uri, state, response_type, scope } = request.query;
+  
+  // Retorna código de autorização automaticamente (para desenvolvimento)
+  const code = 'mcp_auth_code_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  const redirectUrl = `${redirect_uri}?code=${code}&state=${state || ''}`;
+  
+  server.log.info(`🔐 OAuth Authorize: redirect para ${redirectUrl}`);
+  reply.redirect(redirectUrl);
+});
+
+server.post('/oauth/token', async (request, reply) => {
+  const { grant_type, code, client_id, client_secret, redirect_uri } = request.body;
+  
+  // Valida parâmetros básicos
+  if (grant_type !== 'authorization_code') {
+    return reply.code(400).send({
+      error: 'unsupported_grant_type',
+      error_description: 'Only authorization_code grant type is supported'
+    });
+  }
+  
+  // Gera token de acesso
+  const accessToken = 'mcp_access_token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  
+  server.log.info(`🔐 OAuth Token: gerado token ${accessToken.substr(0, 20)}...`);
+  
+  reply.type('application/json').send({
+    access_token: accessToken,
+    token_type: 'Bearer',
+    expires_in: 3600,
+    scope: 'read'
+  });
+});
+
 /**
  * Endpoint principal MCP via POST - JSON-RPC 2.0
  */
