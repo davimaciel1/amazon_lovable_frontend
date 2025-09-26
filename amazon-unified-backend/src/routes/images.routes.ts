@@ -359,27 +359,126 @@ if (result.rows.length === 0) {
     }
 
     // Handle data URI SVGs directly (no HTTP fetch needed)
-    if (imageUrl.startsWith('data:image/svg+xml,')) {
-      console.log(`🎨 [SVG DEBUG] Processing data URI for "${asin}"`);
+    // Support all SVG data URI variants: plain, charset, base64, percent-encoded
+    const trimmedImageUrl = imageUrl.trim();
+    
+    // Check if this is a SVG data URI (flexible pattern matching)
+    if (trimmedImageUrl.startsWith('data:image/svg+xml')) {
+      // Parse data URI to extract format and content
+      const dataUriMatch = trimmedImageUrl.match(/^data:image\/svg\+xml(;[^,]*)?,(.*)/);
+      const dataUriBase64Match = trimmedImageUrl.match(/^data:image\/svg\+xml(;[^,]*)?;base64,(.*)/);
       
-      // Fix HTML encoding issues (&lt; → <, &gt; → >, etc.)
-      const decodedSvg = imageUrl
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&amp;/g, '&')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/%23/g, '#'); // URL decode # character
+      if (!dataUriMatch && !dataUriBase64Match) {
+        console.error(`❌ [SVG DEBUG] Invalid SVG data URI format for "${asin}":`, trimmedImageUrl.substring(0, 100));
+        const errorImage = await renderErrorImage(format, String(asin).toUpperCase());
+        res.set({ 
+          'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`, 
+          'Cache-Control': 'public, max-age=300',
+          'X-Error': 'Invalid SVG data URI format'
+        });
+        return res.send(errorImage);
+      }
       
-      console.log(`✅ [SVG DEBUG] HTML decoding complete for "${asin}"`);
+      let svgContent: string;
+      let processingType: string;
       
-      // Extract SVG content after data:image/svg+xml,
-      const svgContent = decodedSvg.substring('data:image/svg+xml,'.length);
+      if (dataUriBase64Match) {
+        // Handle Base64 encoded SVG (with optional charset parameters)
+        const base64Content = dataUriBase64Match[2];
+        processingType = `base64${dataUriBase64Match[1] || ''}`;
+        
+        try {
+          svgContent = Buffer.from(base64Content, 'base64').toString('utf-8');
+          console.log(`✅ [SVG DEBUG] Base64 decoding complete for "${asin}"`);
+        } catch (error) {
+          console.error(`❌ [SVG DEBUG] Base64 decode failed for "${asin}":`, error);
+          const errorImage = await renderErrorImage(format, String(asin).toUpperCase());
+          res.set({ 
+            'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`, 
+            'Cache-Control': 'public, max-age=300',
+            'X-Error': 'Base64 decode failed'
+          });
+          return res.send(errorImage);
+        }
+      } else if (dataUriMatch) {
+        // Handle comma-separated SVG with safe comprehensive decoding
+        const rawContent = dataUriMatch[2];
+        processingType = `comma-separated${dataUriMatch[1] || ''}`;
+        
+        try {
+          let decodedContent = rawContent;
+          let decodingSteps: string[] = [];
+          
+          // First: Safe URL percent-decode only if needed (%3C -> <, %3E -> >, etc.)
+          // Only attempt decodeURIComponent if content actually contains percent escapes
+          if (rawContent.includes('%') && /(%[0-9A-Fa-f]{2})/.test(rawContent)) {
+            try {
+              decodedContent = decodeURIComponent(rawContent);
+              decodingSteps.push('percent-decoded');
+            } catch (uriError) {
+              // If decodeURIComponent fails (e.g., literal % in SVG like width="100%"), 
+              // use raw content and continue with HTML entity decoding
+              console.log(`⚠️ [SVG DEBUG] Percent decoding failed for "${asin}", using raw content:`, 
+                         (uriError as Error).message.substring(0, 100));
+              decodedContent = rawContent;
+              decodingSteps.push('percent-decode-skipped');
+            }
+          }
+          
+          // Second: HTML entity decode (&lt; -> <, &gt; -> >, etc.)
+          const entityCount = (decodedContent.match(/&[a-z]+;/gi) || []).length;
+          if (entityCount > 0) {
+            decodedContent = decodedContent
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              .replace(/&amp;/g, '&')
+              .replace(/&quot;/g, '"')
+              .replace(/&#39;/g, "'");
+            decodingSteps.push('html-entities-decoded');
+          }
+          
+          svgContent = decodedContent;
+          console.log(`✅ [SVG DEBUG] Safe decoding complete for "${asin}":`, {
+            steps: decodingSteps,
+            entityCount,
+            hasPercent: rawContent.includes('%'),
+            hasPercentEscapes: /(%[0-9A-Fa-f]{2})/.test(rawContent)
+          });
+        } catch (error) {
+          console.error(`❌ [SVG DEBUG] Decoding failed for "${asin}":`, error);
+          const errorImage = await renderErrorImage(format, String(asin).toUpperCase());
+          res.set({ 
+            'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`, 
+            'Cache-Control': 'public, max-age=300',
+            'X-Error': 'SVG decoding failed'
+          });
+          return res.send(errorImage);
+        }
+      } else {
+        // Should never reach here due to regex match above
+        console.error(`❌ [SVG DEBUG] Unexpected SVG data URI format for "${asin}"`);
+        const errorImage = await renderErrorImage(format, String(asin).toUpperCase());
+        res.set({ 
+          'Content-Type': `image/${format === 'jpg' ? 'jpeg' : format}`, 
+          'Cache-Control': 'public, max-age=300',
+          'X-Error': 'Unexpected data URI format'
+        });
+        return res.send(errorImage);
+      }
+      
+      console.log(`🎨 [SVG DEBUG] Processing data URI for "${asin}":`, {
+        type: processingType,
+        originalLength: trimmedImageUrl.length,
+        contentLength: svgContent.length
+      });
+      
       const svgBuffer = Buffer.from(svgContent, 'utf-8');
       
       console.log(`✅ [SVG DEBUG] SVG buffer created for "${asin}":`, {
         contentLength: svgContent.length,
-        bufferSize: svgBuffer.length
+        bufferSize: svgBuffer.length,
+        startsWithSvg: svgContent.trim().startsWith('<svg'),
+        containsSvgTag: svgContent.includes('<svg')
       });
       
       // Set proper SVG headers
