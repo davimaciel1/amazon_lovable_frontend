@@ -6,50 +6,42 @@ import NodeCache from 'node-cache';
 const router = Router();
 const imageCache = new NodeCache({ stdTTL: 604800 });
 
-// URLS DE IMAGEM ML PARA AMBIENTE REPLIT - URLs estáticas base64/data
-const ML_PRODUCT_MAPPINGS: Record<string, { mlb: string; title: string; image: string }> = {
-  // IPAS codes - Produtos de soldagem com imagens base64
+// MLB Code mappings for products (WITHOUT hardcoded images)
+const ML_PRODUCT_MAPPINGS: Record<string, { mlb: string; title: string }> = {
+  // IPAS codes - Produtos de soldagem 
   'IPAS01': { 
     mlb: 'MLB3628967960', 
-    title: 'Arame Solda Mig Sem Gás Tubular 0.8mm 1kg Lynus',
-    image: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" style="background:%234a5568"><text x="200" y="200" text-anchor="middle" dy=".35em" fill="white" font-family="Arial,sans-serif" font-size="18">Arame Solda Mig</text></svg>'
+    title: 'Arame Solda Mig Sem Gás Tubular 0.8mm 1kg Lynus'
   },
   'IPAS02': { 
     mlb: 'MLB4258563772', 
-    title: 'Eletrodo 6013 2.5mm 5kg',
-    image: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" style="background:%232d3748"><text x="200" y="200" text-anchor="middle" dy=".35em" fill="white" font-family="Arial,sans-serif" font-size="18">Eletrodo 6013</text></svg>'
+    title: 'Eletrodo 6013 2.5mm 5kg'
   },
   'IPAS04': { 
     mlb: 'MLB2882967139', 
-    title: 'Arame Solda Mig Tubular Uso Sem Gás 0.8mm',
-    image: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" style="background:%234a5568"><text x="200" y="200" text-anchor="middle" dy=".35em" fill="white" font-family="Arial,sans-serif" font-size="18">Arame Tubular</text></svg>'
+    title: 'Arame Solda Mig Tubular Uso Sem Gás 0.8mm'
   },
   
-  // IPP codes - Pisos vinílicos com imagens base64 
+  // IPP codes - Pisos vinílicos
   'IPP-PV-01': { 
     mlb: 'MLB4100879553', 
-    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Carvalho',
-    image: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" style="background:%238B4513"><text x="200" y="200" text-anchor="middle" dy=".35em" fill="white" font-family="Arial,sans-serif" font-size="16">Piso Carvalho</text></svg>'
+    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Carvalho'
   },
   'IPP-PV-02': { 
     mlb: 'MLB4100879555', 
-    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Castanho',
-    image: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" style="background:%23A0522D"><text x="200" y="200" text-anchor="middle" dy=".35em" fill="white" font-family="Arial,sans-serif" font-size="16">Piso Castanho</text></svg>'
+    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Castanho'
   },
   'IPP-PV-03': { 
     mlb: 'MLB4100879557', 
-    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Nogueira',
-    image: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" style="background:%238B4513"><text x="200" y="200" text-anchor="middle" dy=".35em" fill="white" font-family="Arial,sans-serif" font-size="16">Piso Nogueira</text></svg>'
+    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Nogueira'
   },
   'IPP-PV-04': { 
     mlb: 'MLB4100879559', 
-    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Cumaru',
-    image: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" style="background:%23D2691E"><text x="200" y="200" text-anchor="middle" dy=".35em" fill="white" font-family="Arial,sans-serif" font-size="16">Piso Cumaru</text></svg>'
+    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Cumaru'
   },
   'IPP-PV-05': { 
     mlb: 'MLB4100879561', 
-    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Ipê',
-    image: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" style="background:%23CD853F"><text x="200" y="200" text-anchor="middle" dy=".35em" fill="white" font-family="Arial,sans-serif" font-size="18">Piso Ipê</text></svg>'
+    title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Ipê'
   }
 };
 
@@ -276,6 +268,87 @@ router.post('/sync-all-tables', requireAuthOrApiKey, async (_req: Request, res: 
     res.status(500).json({
       success: false,
       error: 'Database synchronization failed',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+// Clean fake/invented products from database
+router.post('/clean-fake-products', requireAuthOrApiKey, async (_req: Request, res: Response) => {
+  try {
+    console.log('🧹 Starting cleanup of fake/invented products...');
+    
+    await pool.query('BEGIN');
+    
+    // Products to remove completely (fake/invented)
+    const fakeProducts = ['B0CLBFSQH1', 'MLB5649953084', 'MLB4061138537'];
+    
+    // Products with hardcoded SVG images to clean
+    const svgProducts = ['IPAS01', 'IPAS02', 'IPAS03', 'IPAS04', 'IPP-PV-02', 'IPP-PV-04', 'IPP-PV-05'];
+    
+    let removedCount = 0;
+    let cleanedCount = 0;
+    
+    // Remove fake products from order_items
+    for (const asin of fakeProducts) {
+      const orderItemsResult = await pool.query('DELETE FROM order_items WHERE asin = $1', [asin]);
+      console.log(`🗑️ Removed ${orderItemsResult.rowCount || 0} order items for fake product ${asin}`);
+    }
+    
+    // Remove fake products from products table
+    for (const asin of fakeProducts) {
+      const productResult = await pool.query('DELETE FROM products WHERE asin = $1', [asin]);
+      removedCount += productResult.rowCount || 0;
+      console.log(`🗑️ Removed ${productResult.rowCount || 0} fake products for ${asin}`);
+    }
+    
+    // Clean SVG images from products
+    for (const asin of svgProducts) {
+      const svgResult = await pool.query(
+        `UPDATE products 
+         SET image_url = NULL, image_source_url = NULL 
+         WHERE (asin = $1 OR sku = $1) AND image_url LIKE 'data:image/svg+xml%'`,
+        [asin]
+      );
+      cleanedCount += svgResult.rowCount || 0;
+      console.log(`🧽 Cleaned ${svgResult.rowCount || 0} SVG images for ${asin}`);
+    }
+    
+    // Remove orphaned orders
+    const orphanedOrdersResult = await pool.query(`
+      DELETE FROM orders 
+      WHERE amazon_order_id NOT IN (
+        SELECT DISTINCT order_id 
+        FROM order_items 
+        WHERE order_id IS NOT NULL
+      )
+    `);
+    console.log(`🗑️ Removed ${orphanedOrdersResult.rowCount || 0} orphaned orders`);
+    
+    await pool.query('COMMIT');
+    
+    // Clear image cache
+    imageCache.flushAll();
+    console.log('✅ Image cache cleared after cleanup');
+    
+    console.log(`🎉 CLEANUP COMPLETED! Removed ${removedCount} fake products, cleaned ${cleanedCount} SVG images`);
+    
+    res.json({
+      success: true,
+      message: 'Fake products and hardcoded images cleaned successfully',
+      stats: {
+        fakeProductsRemoved: removedCount,
+        svgImagesCleaned: cleanedCount,
+        orphanedOrdersRemoved: orphanedOrdersResult.rowCount || 0
+      }
+    });
+    
+  } catch (error) {
+    await pool.query('ROLLBACK');
+    console.error('❌ Cleanup failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Cleanup failed',
       details: error instanceof Error ? error.message : String(error)
     });
   }
