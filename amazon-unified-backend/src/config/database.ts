@@ -7,13 +7,13 @@
 import { Pool, PoolConfig } from 'pg';
 import { logger } from '../utils/logger';
 
-// Database configuration - Use Neon PostgreSQL with SSL
+// Database configuration - Use Replit DATABASE_URL (auto-configured)
 const dbConfig: PoolConfig = {
   connectionString: process.env.DATABASE_URL,
-  max: 20, // Maximum number of clients in the pool
+  max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
-  ssl: { rejectUnauthorized: false }, // Neon requires SSL
+  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false },
 };
 
 // Create connection pool
