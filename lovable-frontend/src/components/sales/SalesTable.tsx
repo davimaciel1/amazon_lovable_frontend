@@ -341,14 +341,17 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
         
         // Construct absolute image URL against backend origin
         let imageUrl = rawImageUrl;
-        // Derive backend origin - use current protocol and host in production
+        // Derive backend origin - use current protocol and host if in Replit environment
         let backendOrigin: string;
-        if (import.meta.env.DEV) {
-          // Development: use localhost
+        const isReplit = window.location.hostname.includes('replit.dev') || window.location.hostname.includes('replit.app');
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        
+        if (isLocalhost) {
+          // Local development: use localhost
           const apiBase = (import.meta.env.VITE_API_URL as string) || 'http://localhost:8080/api';
           backendOrigin = apiBase.replace(/\/?api\/?$/, '');
         } else {
-          // Production: use same protocol and host as current page
+          // Production/Replit: use same protocol and host as current page
           backendOrigin = `${window.location.protocol}//${window.location.host}`;
         }
         const absolutize = (path: string) => {
@@ -361,7 +364,7 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
           if (rawImageUrl.startsWith('http')) {
             // If it's an Amazon CDN URL, go through backend proxy to avoid CORS
             if (rawImageUrl.includes('amazon.com') || rawImageUrl.includes('media-amazon.com')) {
-              imageUrl = `${apiBase}/image-proxy?url=${encodeURIComponent(rawImageUrl)}`;
+              imageUrl = `${backendOrigin}/api/image-proxy?url=${encodeURIComponent(rawImageUrl)}`;
             } else {
               imageUrl = rawImageUrl;
             }
@@ -389,12 +392,6 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
           marketplaceType = 'mercadolivre';
         }
 
-        // Debug log da imagem ANTES dos fallbacks
-        console.log(`🖼️ IMAGE DEBUG ${row.original.asin}:`, {
-          rawImageUrl,
-          imageUrl,
-          backendOrigin
-        });
 
         // Fallback: generate image URL from ASIN if backend didn't send one
         if (!imageUrl && row.original.asin) {
@@ -473,14 +470,7 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
                   loading="lazy"
                   onError={(e) => {
                     const img = e.target as HTMLImageElement;
-                    console.error(`❌ IMAGE LOAD ERROR for ${row.original.asin}:`, {
-                      imageUrl,
-                      naturalWidth: img.naturalWidth,
-                      naturalHeight: img.naturalHeight,
-                      complete: img.complete,
-                      currentSrc: img.currentSrc,
-                      error: e
-                    });
+                    console.error(`❌ IMAGE LOAD ERROR for ${row.original.asin}: ${imageUrl}`);
                     // Hide the broken image and show "No Image" div instead
                     img.style.display = 'none';
                     const noImageDiv = document.createElement('div');
