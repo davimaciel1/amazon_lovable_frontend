@@ -54,29 +54,54 @@ const ML_PRODUCT_MAPPINGS: Record<string, { mlb: string; title: string; image: s
   }
 };
 
-// Fetch ML item from API with authentication
+// Fetch ML item from public API (no auth required)
 async function fetchMLItem(itemId: string): Promise<any> {
   try {
-    const token = process.env.ML_ACCESS_TOKEN;
     const url = `https://api.mercadolibre.com/items/${itemId}`;
     
-    const headers: any = {
+    const headers = {
       'Accept': 'application/json',
-      'User-Agent': 'Mozilla/5.0'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1'
     };
-    
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
     
     const response = await axios.get(url, {
       headers,
-      timeout: 10000
+      timeout: 15000
     });
     
-    return response.data;
+    const item = response.data;
+    console.log(`✅ Successfully fetched ML item ${itemId}: ${item.title || 'No title'}`);
+    
+    // Get REAL image URLs from the API response 
+    if (item && item.pictures && item.pictures.length > 0) {
+      // Find the highest quality image URL - prefer larger sizes
+      const bestImage = item.pictures.find((pic: any) => pic.secure_url && pic.secure_url.includes('2048x2048')) ||
+                       item.pictures.find((pic: any) => pic.secure_url && pic.secure_url.includes('1200x1200')) ||
+                       item.pictures.find((pic: any) => pic.secure_url && pic.secure_url.includes('500x500')) ||
+                       item.pictures.find((pic: any) => pic.secure_url) ||
+                       item.pictures[0];
+      
+      if (bestImage) {
+        // Use secure_url which is HTTPS and higher quality
+        item.highQualityImage = bestImage.secure_url || bestImage.url;
+        console.log(`✅ Found REAL high-quality image for ${itemId}: ${item.highQualityImage}`);
+        
+        // Also get product title for verification
+        if (item.title) {
+          console.log(`📦 Product: ${item.title}`);
+        }
+      }
+    } else {
+      console.log(`⚠️ No pictures found for ${itemId}`);
+    }
+    
+    return item;
   } catch (error) {
-    console.error(`Error fetching ML item ${itemId}:`, error);
+    console.error(`❌ Error fetching ML item ${itemId}:`, error instanceof Error ? error.message : String(error));
     return null;
   }
 }
@@ -111,41 +136,42 @@ router.post('/update-ml-images', requireAuthOrApiKey, async (_req: Request, res:
       }
     }
     
-    // Step 2: Find remaining ML products without images and update them
-    const remainingResult = await pool.query(`
-      SELECT DISTINCT asin, sku, title, marketplace_id
-      FROM products
-      WHERE (marketplace_id = 'MLB' OR asin LIKE 'MLB%' OR asin LIKE 'IPP%' OR asin LIKE 'IPA%')
-        AND (image_url IS NULL OR image_url = '' OR LENGTH(image_url) < 10)
-      ORDER BY asin
-    `);
+    // Step 2: Fetch REAL high-quality images from ML API for known products
+    console.log('🔍 Fetching real images from Mercado Livre API...');
     
-    for (const product of remainingResult.rows) {
-      // Try to fetch from ML API if it's a valid MLB code
-      if (product.asin && product.asin.startsWith('MLB')) {
-        const mlItem = await fetchMLItem(product.asin);
+    for (const [asin, mapping] of Object.entries(ML_PRODUCT_MAPPINGS)) {
+      try {
+        console.log(`🎯 Fetching real image for ${asin} (MLB: ${mapping.mlb})`);
         
-        if (mlItem && mlItem.pictures && mlItem.pictures.length > 0) {
-          const imageUrl = mlItem.pictures[0].secure_url || mlItem.pictures[0].url;
+        const mlItem = await fetchMLItem(mapping.mlb);
+        
+        if (mlItem && mlItem.highQualityImage) {
+          // Update with the REAL high-quality image from API
+          const realImageUrl = mlItem.highQualityImage;
           
-          await pool.query(
-            `UPDATE products SET image_url = $1, image_source_url = $2, updated_at = NOW() WHERE asin = $3`,
-            [imageUrl, imageUrl, product.asin]
+          const result = await pool.query(
+            `UPDATE products 
+             SET image_url = $1, image_source_url = $2, updated_at = NOW()
+             WHERE asin = $3 OR sku = $3`,
+            [realImageUrl, realImageUrl, asin]
           );
           
-          updatedCount++;
-          updates.push({ asin: product.asin, status: 'fetched', image: imageUrl });
-          console.log(`✅ Updated ${product.asin} with ML image`);
+          if (result.rowCount && result.rowCount > 0) {
+            updatedCount += result.rowCount;
+            updates.push({ 
+              asin, 
+              status: 'real_image_fetched', 
+              image: realImageUrl,
+              mlb: mapping.mlb
+            });
+            console.log(`✅ Updated ${asin} with REAL ML image: ${realImageUrl}`);
+          }
         } else {
-          // Use a default ML image
-          const defaultImage = 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg';
-          await pool.query(
-            `UPDATE products SET image_url = $1, image_source_url = $2, updated_at = NOW() WHERE asin = $3`,
-            [defaultImage, defaultImage, product.asin]
-          );
-          updatedCount++;
-          updates.push({ asin: product.asin, status: 'default', image: defaultImage });
+          console.log(`⚠️ Could not fetch real image for ${asin}, using fallback`);
         }
+      } catch (error) {
+        console.error(`❌ Error fetching real image for ${asin}:`, error);
+        errorCount++;
       }
     }
     
