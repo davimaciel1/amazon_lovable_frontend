@@ -105,13 +105,15 @@ export class MercadoLivreLookupService {
       
       console.log('✅ Credenciais encontradas, fazendo requisição de renovação...');
       
-      // Faz requisição de renovação do token
-      const tokenResponse = await axios.post('https://api.mercadolibre.com/oauth/token', {
-        grant_type: 'refresh_token',
-        client_id: credentials.ML_CLIENT_ID,
-        client_secret: credentials.ML_CLIENT_SECRET,
-        refresh_token: credentials.ML_REFRESH_TOKEN
-      }, {
+      // Prepara dados em formato form-encoded para ML API
+      const formData = new URLSearchParams();
+      formData.append('grant_type', 'refresh_token');
+      formData.append('client_id', credentials.ML_CLIENT_ID);
+      formData.append('client_secret', credentials.ML_CLIENT_SECRET);
+      formData.append('refresh_token', credentials.ML_REFRESH_TOKEN);
+      
+      // Faz requisição de renovação do token com formato correto
+      const tokenResponse = await axios.post('https://api.mercadolibre.com/oauth/token', formData, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/x-www-form-urlencoded'
@@ -128,25 +130,30 @@ export class MercadoLivreLookupService {
       
       console.log('✅ Tokens renovados com sucesso!');
       
-      // Atualiza tokens no banco de dados
+      // Atualiza tokens no banco de dados com UPSERT
       await pool.query('BEGIN');
       
+      // UPSERT access token
       await pool.query(
-        `UPDATE ml_credentials 
-         SET credential_value = $1, updated_at = NOW() 
-         WHERE credential_key = 'ML_ACCESS_TOKEN'`,
+        `INSERT INTO ml_credentials (credential_key, credential_value, is_active, updated_at)
+         VALUES ('ML_ACCESS_TOKEN', $1, true, NOW())
+         ON CONFLICT (credential_key) 
+         DO UPDATE SET credential_value = EXCLUDED.credential_value, updated_at = NOW()`,
         [access_token]
       );
       
+      // UPSERT refresh token se fornecido
       if (refresh_token) {
         await pool.query(
-          `UPDATE ml_credentials 
-           SET credential_value = $1, updated_at = NOW() 
-           WHERE credential_key = 'ML_REFRESH_TOKEN'`,
+          `INSERT INTO ml_credentials (credential_key, credential_value, is_active, updated_at)
+           VALUES ('ML_REFRESH_TOKEN', $1, true, NOW())
+           ON CONFLICT (credential_key) 
+           DO UPDATE SET credential_value = EXCLUDED.credential_value, updated_at = NOW()`,
           [refresh_token]
         );
       }
       
+      // UPSERT tempo de expiração se fornecido
       if (expires_in) {
         const expiryTime = Date.now() + (expires_in * 1000);
         await pool.query(
@@ -176,22 +183,36 @@ export class MercadoLivreLookupService {
   }
 
   /**
-   * Busca seller ID do usuário autenticado com retry em caso de token expirado
+   * Busca seller ID do usuário autenticado com retry automático
    */
   private async getSellerId(): Promise<number | null> {
     try {
-      const accessToken = await this.getAccessToken();
-      if (!accessToken) return null;
-
-      const response = await axios.get(`${ML_API_BASE}/users/me`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/json'
-        },
-        timeout: 10000
+      const response = await this.executeAuthenticatedRequest(async (token) => {
+        return await axios.get(`${ML_API_BASE}/users/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          },
+          timeout: 10000
+        });
       });
 
-      return response.data.id;
+      return response?.data.id || null;
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar seller ID:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Executa requisição autenticada com retry automático em caso de token expirado
+   */
+  private async executeAuthenticatedRequest<T>(requestFn: (token: string) => Promise<T>): Promise<T | null> {
+    const accessToken = await this.getAccessToken();
+    if (!accessToken) return null;
+
+    try {
+      return await requestFn(accessToken);
     } catch (error: any) {
       // Se erro 401/403, tenta renovar o token uma vez
       if (error.response?.status === 401 || error.response?.status === 403) {
@@ -200,22 +221,14 @@ export class MercadoLivreLookupService {
         
         if (newToken) {
           try {
-            const retryResponse = await axios.get(`${ML_API_BASE}/users/me`, {
-              headers: {
-                'Authorization': `Bearer ${newToken}`,
-                'Accept': 'application/json'
-              },
-              timeout: 10000
-            });
-            return retryResponse.data.id;
+            return await requestFn(newToken);
           } catch (retryError: any) {
-            console.error('❌ Retry falhou ao buscar seller ID:', retryError.message);
+            console.error('❌ Retry falhou:', retryError.message);
+            throw retryError;
           }
         }
       }
-      
-      console.error('❌ Erro ao buscar seller ID:', error.message);
-      return null;
+      throw error;
     }
   }
 
@@ -227,28 +240,29 @@ export class MercadoLivreLookupService {
     try {
       console.log(`🔍 Buscando produtos do seller por SKU: "${sku}"`);
       
-      const accessToken = await this.getAccessToken();
-      if (!accessToken) {
-        console.error('❌ Access token não disponível');
-        return [];
-      }
-
       const sellerId = await this.getSellerId();
       if (!sellerId) {
         console.error('❌ Seller ID não disponível');
         return [];
       }
       
-      const response = await axios.get(`${ML_API_BASE}/users/${sellerId}/items/search`, {
-        params: {
-          seller_sku: sku
-        },
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/json'
-        },
-        timeout: 10000
+      const response = await this.executeAuthenticatedRequest(async (token) => {
+        return await axios.get(`${ML_API_BASE}/users/${sellerId}/items/search`, {
+          params: {
+            seller_sku: sku
+          },
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          },
+          timeout: 10000
+        });
       });
+
+      if (!response) {
+        console.error('❌ Falha na requisição autenticada');
+        return [];
+      }
 
       const results = response.data?.results || [];
       console.log(`✅ Encontrados ${results.length} produtos do seller para SKU "${sku}"`);
@@ -332,20 +346,34 @@ export class MercadoLivreLookupService {
       console.log(`🔍 Buscando detalhes do item: ${mlbCode}`);
       
       const accessToken = await this.getAccessToken();
-      const headers: any = {
-        'Accept': 'application/json'
-      };
       
-      // Adiciona token de autorização se disponível para melhor acesso
+      let response;
       if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`;
         console.log(`✅ Usando token de autorização para ${mlbCode}`);
+        // Tenta com autenticação e retry automático
+        response = await this.executeAuthenticatedRequest(async (token) => {
+          return await axios.get(`${ML_API_BASE}/items/${mlbCode}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json'
+            },
+            timeout: 10000
+          });
+        });
+      } else {
+        // Fallback para público sem autenticação
+        response = await axios.get(`${ML_API_BASE}/items/${mlbCode}`, {
+          headers: {
+            'Accept': 'application/json'
+          },
+          timeout: 10000
+        });
       }
-      
-      const response = await axios.get(`${ML_API_BASE}/items/${mlbCode}`, {
-        headers,
-        timeout: 10000
-      });
+
+      if (!response) {
+        console.warn(`⚠️ Falha na requisição para item: ${mlbCode}`);
+        return null;
+      }
 
       const item = response.data;
       
