@@ -281,5 +281,52 @@ export function createMLRealMappingsRoutes(pool: Pool): Router {
     }
   });
 
+  /**
+   * POST /api/ml-real-mappings/create-table - Cria a tabela ml_real_mappings (temporário)
+   */
+  router.post('/create-table', async (_req: Request, res: Response) => {
+    try {
+      console.log('🏗️ Criando tabela ml_real_mappings...');
+      
+      const createTableSQL = `
+        CREATE TABLE IF NOT EXISTS ml_real_mappings (
+          id SERIAL PRIMARY KEY,
+          sku VARCHAR(100) NOT NULL UNIQUE,
+          mlb_code VARCHAR(20) NOT NULL,
+          title VARCHAR(500),
+          price DECIMAL(10,2),
+          image_url TEXT,
+          permalink VARCHAR(500),
+          status VARCHAR(20) DEFAULT 'active',
+          verified_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        );
+
+        -- Índices para performance
+        CREATE INDEX IF NOT EXISTS idx_ml_real_mappings_sku ON ml_real_mappings(sku);
+        CREATE INDEX IF NOT EXISTS idx_ml_real_mappings_mlb ON ml_real_mappings(mlb_code);
+        CREATE INDEX IF NOT EXISTS idx_ml_real_mappings_status ON ml_real_mappings(status);
+      `;
+      
+      await pool.query(createTableSQL);
+      
+      console.log('✅ Tabela ml_real_mappings criada com sucesso');
+      
+      res.json({
+        success: true,
+        message: 'Tabela ml_real_mappings criada com sucesso'
+      });
+      
+    } catch (error) {
+      console.error('❌ Erro ao criar tabela ml_real_mappings:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Erro interno do servidor',
+        details: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    }
+  });
+
   return router;
 }
