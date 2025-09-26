@@ -1,0 +1,81 @@
+Seu diagnóstico tá redondinho — a infra de refresh funciona e o erro é mesmo invalid_grant por refresh token inválido/antigo. Bora resolver de forma segura e definitiva:
+
+O que fazer agora
+
+Gire suas credenciais
+
+Os IDs/segredos que você colou aqui agora são públicos. Entre no painel de dev do Mercado Livre e regenere o Client Secret e, se quiser, um novo App (recomendado).
+
+Depois atualize seu backend com o novo clientId/clientSecret.
+(Use o domínio do seu site: no Brasil o fluxo usa https://auth.mercadolivre.com.br/authorization e o token é em https://api.mercadolibre.com/oauth/token.) 
+GitHub
++1
+
+Refaça o OAuth para obter um refresh token NOVO
+
+Monte a URL de autorização (ajuste o domínio do país, redirect_uri exatamente igual ao cadastrado no app):
+
+https://auth.mercadolivre.com.br/authorization
+  ?response_type=code
+  &client_id=SEU_APP_ID
+  &redirect_uri=SEU_REDIRECT_URI
+  &state=xyz123
+
+
+(Se sua app exigir escopos para refresh, inclua scope=offline_access.) 
+GitHub
+
+Ao logar/autorizar, você receberá ?code=... no redirect_uri.
+
+Troque o authorization code por tokens:
+
+curl -X POST https://api.mercadolibre.com/oauth/token \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  -d 'grant_type=authorization_code' \
+  -d 'client_id=SEU_APP_ID' \
+  -d 'client_secret=SEU_CLIENT_SECRET' \
+  -d 'code=CODE_RECEBIDO' \
+  -d 'redirect_uri=SEU_REDIRECT_URI'
+
+
+A resposta traz access_token, refresh_token e expires_in. Guarde os três. 
+GitHub
+
+Quando o access token expirar, troque usando SEMPRE o refresh token mais recente (rotativo):
+
+curl -X POST https://api.mercadolibre.com/oauth/token \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  -d 'grant_type=refresh_token' \
+  -d 'client_id=SEU_APP_ID' \
+  -d 'client_secret=SEU_CLIENT_SECRET' \
+  -d 'refresh_token=SEU_REFRESH_TOKEN_ATUAL'
+
+
+(Essa chamada normalmente retorna um novo refresh_token. Substitua o antigo — tokens antigos passam a falhar com invalid_grant.) 
+GitHub
+
+Atualize seu serviço
+
+Poste só o novo refresh token no seu endpoint já funcional:
+
+curl -X POST "http://localhost:8080/api/ml/credentials/upsert" \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"NOVO_REFRESH_TOKEN"}'
+
+Checklist anti-invalid_grant
+
+redirect_uri idêntico ao cadastrado no app (inclusive https vs http e barra final). 
+GitHub
+
+Usar o último refresh_token retornado (tokens são rotativos). 
+GitHub
+
+client_id/client_secret do mesmo app do refresh_token. 
+GitHub
+
+Domínio correto de autorização para o seu país (ex.: mercadolivre.com.br no BR). 
+Postman
+
+Dica rápida de captura do code (local)
+
+Se precisar de um callback rápido, registre http://localhost:3000/callback no app e rode algo assim (qualquer stack/servidor serve). Depois é só copiar o code que chegar.
