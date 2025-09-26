@@ -341,9 +341,16 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
         
         // Construct absolute image URL against backend origin
         let imageUrl = rawImageUrl;
-        // Derive backend origin from API base (e.g., http://localhost:8080/api -> http://localhost:8080)
-        const apiBase = (import.meta.env.VITE_API_URL as string) || 'http://localhost:8080/api';
-        const backendOrigin = apiBase.replace(/\/?api\/?$/, '');
+        // Derive backend origin - use current protocol and host in production
+        let backendOrigin: string;
+        if (import.meta.env.DEV) {
+          // Development: use localhost
+          const apiBase = (import.meta.env.VITE_API_URL as string) || 'http://localhost:8080/api';
+          backendOrigin = apiBase.replace(/\/?api\/?$/, '');
+        } else {
+          // Production: use same protocol and host as current page
+          backendOrigin = `${window.location.protocol}//${window.location.host}`;
+        }
         const absolutize = (path: string) => {
           if (!path) return path;
           const normalized = path.startsWith('/') ? path : `/${path}`;
@@ -381,6 +388,13 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
         if (typeof marketplaceId === 'string' && marketplaceId.toUpperCase().startsWith('ML')) {
           marketplaceType = 'mercadolivre';
         }
+
+        // Debug log da imagem ANTES dos fallbacks
+        console.log(`🖼️ IMAGE DEBUG ${row.original.asin}:`, {
+          rawImageUrl,
+          imageUrl,
+          backendOrigin
+        });
 
         // Fallback: generate image URL from ASIN if backend didn't send one
         if (!imageUrl && row.original.asin) {
@@ -459,6 +473,14 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
                   loading="lazy"
                   onError={(e) => {
                     const img = e.target as HTMLImageElement;
+                    console.error(`❌ IMAGE LOAD ERROR for ${row.original.asin}:`, {
+                      imageUrl,
+                      naturalWidth: img.naturalWidth,
+                      naturalHeight: img.naturalHeight,
+                      complete: img.complete,
+                      currentSrc: img.currentSrc,
+                      error: e
+                    });
                     // Hide the broken image and show "No Image" div instead
                     img.style.display = 'none';
                     const noImageDiv = document.createElement('div');
