@@ -81,6 +81,11 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
   const { columnVisibility, settings, setSettings } = useSalesStore();
   const [showDebug, setShowDebug] = useState(false);
   
+  // Single cache buster for the entire session to force image reload once
+  const [sessionCacheBuster] = useState(() => {
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  });
+  
   // Debug data on initial load or data change
   useEffect(() => {
     if (data && import.meta.env.DEV) {
@@ -384,11 +389,10 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
             }
           }
           
-          // Add cache busting to ALL image URLs to force reload of real images
+          // Apply single-session cache busting to force reload of real images
           if (imageUrl && imageUrl.includes('/app/product-images/')) {
             const separator = imageUrl.includes('?') ? '&' : '?';
-            const cacheBuster = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            imageUrl = `${imageUrl}${separator}cb=${cacheBuster}&_t=${new Date().getTime()}`;
+            imageUrl = `${imageUrl}${separator}v=${sessionCacheBuster}`;
           }
         }
 
@@ -415,9 +419,8 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
               codeForImageUrl = row.original.asin;
             }
             const encoded = btoa(codeForImageUrl);
-            // Add aggressive cache busting to force browser to reload updated images
-            const cacheBuster = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            imageUrl = `${backendOrigin}/app/product-images/${encoded}.jpg?v=${cacheBuster}&_t=${new Date().getTime()}`;
+            // Apply single-session cache busting to force browser to reload updated images
+            imageUrl = `${backendOrigin}/app/product-images/${encoded}.jpg?v=${sessionCacheBuster}`;
           } catch {}
         }
         
