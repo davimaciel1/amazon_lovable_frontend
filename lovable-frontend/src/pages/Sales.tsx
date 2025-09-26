@@ -21,7 +21,18 @@ const Sales = () => {
   const { settings } = useSalesStore();
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
-  // Parse filters from URL
+  // Handle redirect from 'today' to 'allTime' in useEffect to avoid setState during render
+  useEffect(() => {
+    const urlPreset = searchParams.get('preset');
+    if (urlPreset === 'today') {
+      // Redirect to allTime to show complete dataset
+      const newParams = new URLSearchParams(searchParams);
+      newParams.set('preset', 'allTime');
+      setSearchParams(newParams);
+    }
+  }, [searchParams, setSearchParams]);
+
+  // Parse filters from URL (pure function, no side effects)
   const parseFiltersFromUrl = useCallback(() => {
     // If URL has no preset, try load last filters from localStorage
     const urlPreset = searchParams.get('preset');
@@ -38,7 +49,7 @@ const Sales = () => {
       } catch {}
     }
 
-    const preset = urlPreset || '12months';
+    const preset = urlPreset || 'allTime';
     const dateRange = preset === 'custom' 
       ? {
           preset,
@@ -72,7 +83,10 @@ return {
     };
   }, [searchParams]);
 
-  const filters = useMemo(() => parseFiltersFromUrl(), [parseFiltersFromUrl]);
+  const filters = useMemo(() => {
+    const parsed = parseFiltersFromUrl();
+    return parsed || { dateRange: { preset: 'allTime', from: '2020-01-01', to: new Date().toISOString() } };
+  }, [parseFiltersFromUrl]);
 
   // Update URL when filters change
   const updateFilters = useCallback((newFilters: Partial<typeof filters>) => {
