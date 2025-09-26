@@ -105,6 +105,8 @@ router.post('/oauth/exchange', optionalApiKey, async (req, res) => {
     console.log('🔄 Trocando authorization code por tokens...');
     console.log('📋 Code:', code);
     console.log('🔗 Redirect URI:', redirectUri);
+    console.log('🔑 Client ID sendo usado:', clientId);
+    console.log('🔐 Client Secret sendo usado:', clientSecret?.substring(0, 10) + '...');
 
     // Fazer requisição com form-encoded data
     const formData = new URLSearchParams();
