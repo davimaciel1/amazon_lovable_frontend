@@ -50,10 +50,11 @@ export class MercadoLivreLookupService {
 
   /**
    * Busca produtos no Mercado Livre por termo (título, SKU, etc)
+   * Usa endpoint público - não requer autenticação
    */
   async searchProducts(query: string, limit: number = 10): Promise<MLProduct[]> {
     try {
-      console.log(`🔍 Buscando produtos no ML: "${query}"`);
+      console.log(`🔍 Buscando produtos no ML (público): "${query}"`);
       
       const response = await axios.get(`${ML_API_BASE}/sites/${SITE_ID}/search`, {
         params: {
@@ -90,10 +91,11 @@ export class MercadoLivreLookupService {
 
   /**
    * Busca detalhes completos de um produto específico por MLB code
+   * Usa endpoint público - não requer autenticação
    */
   async getItemDetails(mlbCode: string): Promise<MLItemDetail | null> {
     try {
-      console.log(`🔍 Buscando detalhes do item: ${mlbCode}`);
+      console.log(`🔍 Buscando detalhes do item (público): ${mlbCode}`);
       
       const response = await axios.get(`${ML_API_BASE}/items/${mlbCode}`, {
         timeout: 10000

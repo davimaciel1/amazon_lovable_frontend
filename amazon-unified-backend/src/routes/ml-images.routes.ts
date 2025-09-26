@@ -55,63 +55,124 @@ const ML_PRODUCT_MAPPINGS: Record<string, { mlb: string; title: string; image: s
 
 // Note: fetchMLItem function removed - causes 403 errors, using direct URLs instead
 
-// Update all ML product images
+// Update all ML product images with REAL API images
 router.post('/update-ml-images', requireAuthOrApiKey, async (_req: Request, res: Response) => {
   try {
-    console.log('🚀 Starting ML image update process...');
+    console.log('🚀 Starting REAL ML image update process using API...');
     
     let updatedCount = 0;
     let errorCount = 0;
     const updates: any[] = [];
     
-    // Step 1: Update known ML product mappings
-    for (const [asin, mapping] of Object.entries(ML_PRODUCT_MAPPINGS)) {
+    // Import the ML lookup service
+    const { mercadoLivreLookupService } = await import('../services/mercadolivre-lookup.service');
+    
+    // Step 1: Get all ML products from database
+    const mlProductsQuery = `
+      SELECT asin, sku, title, marketplace_id, image_url, image_source_url
+      FROM products 
+      WHERE marketplace_id = 'MLB' 
+         OR asin LIKE 'MLB%' 
+         OR sku LIKE 'IPP%' 
+         OR sku LIKE 'IPAS%'
+      ORDER BY asin
+    `;
+    
+    const mlProducts = await pool.query(mlProductsQuery);
+    console.log(`📦 Found ${mlProducts.rows.length} ML products to process`);
+    
+    // Step 2: Process each product to get real images
+    for (const product of mlProducts.rows) {
+      const { asin, sku, title } = product;
+      
+      console.log(`🔄 Processing: ${asin} (SKU: ${sku})`);
+      
       try {
-        const result = await pool.query(
+        let mlbCode = null;
+        let realImageUrl = null;
+        
+        // Determine MLB code to use
+        if (asin.startsWith('MLB')) {
+          mlbCode = asin;
+        } else if (ML_PRODUCT_MAPPINGS[asin] || ML_PRODUCT_MAPPINGS[sku]) {
+          // Use mapping for known products
+          const mapping = ML_PRODUCT_MAPPINGS[asin] || ML_PRODUCT_MAPPINGS[sku];
+          mlbCode = mapping.mlb;
+        } else {
+          // Try to find MLB code using lookup service
+          mlbCode = await mercadoLivreLookupService.findMLBForSKU(sku, title);
+        }
+        
+        if (!mlbCode) {
+          console.warn(`⚠️ No MLB code found for ${asin} (${sku})`);
+          errorCount++;
+          continue;
+        }
+        
+        console.log(`🔍 Using MLB code: ${mlbCode}`);
+        
+        // Get real image from ML API
+        realImageUrl = await mercadoLivreLookupService.getHighQualityImage(mlbCode);
+        
+        if (!realImageUrl) {
+          console.warn(`⚠️ No image found for MLB: ${mlbCode}`);
+          errorCount++;
+          continue;
+        }
+        
+        console.log(`✅ Found real image: ${realImageUrl.substring(0, 80)}...`);
+        
+        // Update database with real image URL
+        const updateResult = await pool.query(
           `UPDATE products 
-           SET image_url = $1, image_source_url = $2, updated_at = NOW()
-           WHERE asin = $3 OR sku = $3`,
-          [mapping.image, mapping.image, asin]
+           SET image_url = $1, image_source_url = $2, asin = $3, updated_at = NOW()
+           WHERE asin = $4 OR sku = $4`,
+          [realImageUrl, realImageUrl, mlbCode, asin]
         );
         
-        if (result.rowCount && result.rowCount > 0) {
-          updatedCount += result.rowCount;
-          updates.push({ asin, status: 'updated', image: mapping.image });
-          console.log(`✅ Updated ${result.rowCount} rows for ${asin}`);
+        if (updateResult.rowCount && updateResult.rowCount > 0) {
+          updatedCount += updateResult.rowCount;
+          updates.push({ 
+            originalASIN: asin,
+            newMLB: mlbCode,
+            sku,
+            status: 'updated',
+            imageUrl: realImageUrl.substring(0, 100) + '...'
+          });
+          console.log(`✅ Updated ${updateResult.rowCount} rows for ${asin} -> ${mlbCode}`);
         }
-      } catch (error) {
+        
+        // Add delay to respect API rate limits
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+      } catch (error: any) {
+        console.error(`❌ Error processing ${asin}:`, error.message);
         errorCount++;
-        console.error(`❌ Error updating ${asin}:`, error);
       }
     }
     
-    // Step 2: SKIP API fetching (causes 403) - use direct URLs from mappings
-    console.log('✅ Using direct image URLs from ML_PRODUCT_MAPPINGS (skipping API fetch)');
-    console.log('💡 Direct URLs are already applied in Step 1');
-    
-    // Step 3: Removed fake MLB code mappings for ml_inventory table
-    // No longer updating with fabricated MLB codes
-    
-    // Clear image cache
+    // Clear image cache to force refresh
     imageCache.flushAll();
     console.log('✅ Image cache cleared');
     
     res.json({
       success: true,
-      message: 'ML images updated successfully',
+      message: 'Real ML images updated successfully using API',
       stats: {
+        processed: mlProducts.rows.length,
         updated: updatedCount,
         errors: errorCount,
-        totalProcessed: updatedCount + errorCount
+        successRate: mlProducts.rows.length > 0 ? ((updatedCount / mlProducts.rows.length) * 100).toFixed(2) + '%' : '0%'
       },
       updates: updates.slice(0, 20) // Return first 20 updates as sample
     });
     
   } catch (error) {
-    console.error('Error updating ML images:', error);
+    console.error('Error updating ML images with real API:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to update ML images'
+      error: 'Failed to update ML images with real API',
+      details: error instanceof Error ? error.message : String(error)
     });
   }
 });
