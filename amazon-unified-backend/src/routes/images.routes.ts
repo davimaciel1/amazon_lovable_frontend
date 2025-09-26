@@ -358,6 +358,41 @@ if (result.rows.length === 0) {
       return res.send(errorImage);
     }
 
+    // Handle data URI SVGs directly (no HTTP fetch needed)
+    if (imageUrl.startsWith('data:image/svg+xml,')) {
+      console.log(`🎨 [SVG DEBUG] Processing data URI for "${asin}"`);
+      
+      // Fix HTML encoding issues (&lt; → <, &gt; → >, etc.)
+      const decodedSvg = imageUrl
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/%23/g, '#'); // URL decode # character
+      
+      console.log(`✅ [SVG DEBUG] HTML decoding complete for "${asin}"`);
+      
+      // Extract SVG content after data:image/svg+xml,
+      const svgContent = decodedSvg.substring('data:image/svg+xml,'.length);
+      const svgBuffer = Buffer.from(svgContent, 'utf-8');
+      
+      console.log(`✅ [SVG DEBUG] SVG buffer created for "${asin}":`, {
+        contentLength: svgContent.length,
+        bufferSize: svgBuffer.length
+      });
+      
+      // Set proper SVG headers
+      res.set({
+        'Content-Type': 'image/svg+xml',
+        'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+        'X-Product-ASIN': asin,
+        'X-Source': 'database-svg'
+      });
+      
+      return res.send(svgBuffer);
+    }
+
     // Fetch image from external source (Amazon, Mercado Livre, etc)
     const urlOrigin = new URL(imageUrl).origin;
     const dynamicReferer = urlOrigin.includes('amazon') ? 'https://www.amazon.com/' : urlOrigin;
