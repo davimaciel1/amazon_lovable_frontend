@@ -1,0 +1,154 @@
+Última atualização em 13/08/2025
+1. MCP Server do Mercado Livre
+O Model Context Protocol (MCP) é um protocolo aberto que padroniza a conexão de modelos de inteligência artificial com diferentes fontes de dados e ferramentas. Nesse contexto, o MCP Server do Mercado Livre oferece utilidades para que os desenvolvedores possam interagir facilmente com APIs e recursos do Mercado Livre usando linguagem natural, simplificando tarefas e integrações de produtos.
+
+2. Requisitos prévios
+Antes de começar, certifique-se de ter o seguinte ambiente:
+
+Requisito	Descrição
+Cliente MCP	Um cliente compatível (por exemplo, Cursor, Windsurf, Cline, Claude Desktop, ChatGPT, etc).
+Credenciais	Access Token da sua aplicação no Mercado Livre.
+
+3. Instalação e configuração
+3.1 Cursor
+Para se conectar ao nosso MCP do Mercado Livre, primeiro é necessário realizar a conexão com o cliente que melhor se adapta à sua integração. Verifique o passo a passo conforme o tipo de cliente.
+
+No Cursor, você pode clicar no botão abaixo ou seguir os passos manualmente.
+
+
+
+Nota:
+Substitua Access_Token; pelo seu Access Token. Mais informações sobre como obtê-lo.
+Para se conectar ao servidor MCP do Mercado Livre via Cursor manualmente, siga estes passos:
+
+Cursor Settings > Tools & Integrations > New MCP Server
+Isto abrirá uma aba onde você poderá visualizar e configurar os servidores MCP disponíveis.
+Na configuração, certifique-se de incluir o seguinte bloco JSON para conectar ao servidor MCP do Mercado Livre
+
+JSON:
+
+{
+  "mcpServers": {
+    "mercadolibre-mcp-server": {
+      "url": "https://mcp.mercadolibre.com/mcp",
+      "headers": {
+       "Authorization": "Bearer Access_Token"
+      }
+    }
+  }
+}
+Nota:
+Substitua Access_Token pelo seu Access Token. Mais informações sobre como obtê-lo.
+3.2 Windsurf
+Para se conectar ao servidor MCP do Mercado Livre pelo Windsurf, siga estes passos:
+
+ Cascade > MCP Servers  > Configure 
+JSON:
+
+{
+  "mcpServers": {
+    "mercadolibre-mcp-server":{
+      "serverUrl": "https://mcp.mercadolibre.com/mcp",
+      "headers": {
+        "Authorization": "Bearer Access_Token"
+      }
+    }
+  }
+}
+Nota:
+Substitua Access_Token pelo seu Access Token. Mais informações sobre como obter.
+
+
+3.3 Outros IDEs
+Abra a configuração do IDE e procure o arquivo JSON referente a servidores MCP.
+Depois, preencha os campos de “Authorization” com seu Access Token.
+
+JSON:
+
+{
+  "mcpServers": {
+    "mercadolibre-mcp-server": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.mercadolibre.com/mcp",
+        "--header",
+        "Authorization:${AUTH_HEADER}"
+      ],
+      "env": {
+        "AUTH_HEADER": "Bearer Access_Token"
+      }
+    }
+  }
+}
+
+
+Nota:
+Substitua Access_Token pelo seu Access Token.
+4. Conexão ao MCP Server
+Estabeleça a conexão remota a partir do seu cliente preferido (exemplo: Cursor).
+Certifique-se de que o servidor MCP esteja disponível e corretamente configurado em seu cliente.
+Se não aparecer, revise a configuração e recarregue a lista de servidores MCP.
+
+
+
+5. Ferramentas disponíveis
+O MCP Server do Mercado Livre oferece ferramentas para facilitar a integração e consulta de informações relevantes.
+
+search_documentation
+Habilita a busca de termos específicos ou conceitos-chave em toda a documentação técnica para desenvolvedores do Mercado Livre.
+
+query: Palavras-chave que se deseja buscar na documentação (Obrigatório)
+language: Idioma da documentação a ser consultada (ex: en_us, es_ar, pt_br) (Obrigatório)
+siteId: ID do país para filtrar resultados (ex: MLA, MLB, MLM, etc) (Opcional)
+limit: Máximo de resultados a retornar (Opcional)
+offset: Número de resultados a omitir (Opcional)
+get_documentation_page
+Obtém o conteúdo completo de uma página específica da documentação, útil para acessar especificações ou casos de uso detalhados.
+
+path: Caminho da página a ser obtida (Obrigatório)
+language: Idioma da documentação a ser consultada (ex: en_us, es_ar, pt_br) (Obrigatório)
+siteId: ID do país para filtrar resultados (ex: MLA, MLB, MLM, etc) (Opcional)
+
+
+6. Casos de uso
+O MCP Server garante que atividades comuns dos desenvolvedores sejam otimizadas de maneira fácil e rápida. A seguir, veja alguns casos de uso para implementar na sua integração.
+
+Importante:
+Os exemplos desta seção utilizam Cursor como cliente MCP, mas você pode usar qualquer cliente MCP que preferir.
+6.1 Buscar na documentação a partir do seu IDE
+As ferramentas (tools) não são utilizadas diretamente pelo usuário ou desenvolvedor, mas sim pelo IDE Agente. Por exemplo:
+
+A ferramenta search_documentation permite ao IDE Agente buscar termos-chave em toda a documentação oficial do Mercado Livre e recuperar os endpoints ou rotas mais relevantes para o contexto consultado.
+
+Depois, com a ferramenta get_documentation_page, o IDE Agente acessa o conteúdo completo das rotas identificadas no passo anterior, permitindo assim obter informações específicas e casos de uso concretos diretamente da documentação.
+
+Dessa forma, o IDE automatiza a consulta e navegação pela documentação, facilitando que o desenvolvedor eceba respostas contextualizadas e precisas sem precisar buscar manualmente.
+
+
+6.2 Gerar código de integração
+Além de consultar a documentação, as ferramentas do MCP são utilizadas pelo IDE Agente para gerar código e auxiliar na integração de produtos em seus projetos.
+
+Por exemplo, você pode solicitar ao assistente que revise a documentação do produto que deseja integrar e identifique os passos necessários para completar a integração. O MCP Server fornece o contexto relevante (incluindo exemplos de código e documentação técnica), que o IDE Agente usa para sugerir ou até mesmo aplicar diretamente as modificações necessárias no seu projeto.
+
+Dessa forma, o IDE automatiza a consulta, a análise e a implementação de integrações, facilitando o trabalho do desenvolvedor e acelerando o processo de desenvolvimento.
+
+Você pode solicitar recomendações para implementar integrações específicas, por exemplo:
+
+
+7. Erros e soluções
+7.1 Token inválido ou ausente
+Se ao tentar conectar, o aplicativo fica em estado "Loading Tools" indefinidamente ou não consegue estabelecer conexão com o servidor, é possível que haja um problema com o token de autenticação.
+
+Possíveis causas:
+
+Não foi fornecido um token de autenticação na solicitação.
+O token fornecido expirou ou está incorreto.
+O formato do token é inválido (por exemplo, caracteres ausentes ou copiados incorretamente).
+O token não tem as permissões necessárias para acessar o recurso solicitado.
+Soluções sugeridas:
+
+Verifique se o token está presente no cabeçalho da solicitação (em Authorization: Bearer Access_Token).
+Certifique-se de que o token não expirou. Se sim, solicite um novo.
+Copie o token completo, sem espaços adicionais ou caracteres faltantes.
