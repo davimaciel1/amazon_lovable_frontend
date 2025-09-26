@@ -39,9 +39,12 @@ router.delete('/clean-fake-products', requireAuthOrApiKey, async (_req: Request,
       console.log(`🗑️ Deleted ${result.rowCount || 0} products with fake MLB code: ${fakeCode}`);
     }
     
-    // Delete by fake product SKUs
+    // Delete by fake product SKUs (check both ASIN and SKU columns)
     for (const fakeSku of fakeProducts) {
-      const result = await pool.query('DELETE FROM products WHERE sku = $1 AND marketplace_id = \'MLB\'', [fakeSku]);
+      const result = await pool.query(
+        'DELETE FROM products WHERE (asin = $1 OR sku = $1) AND marketplace_id = \'MLB\'', 
+        [fakeSku]
+      );
       deletedCount += result.rowCount || 0;
       console.log(`🗑️ Deleted ${result.rowCount || 0} products with fake SKU: ${fakeSku}`);
     }
