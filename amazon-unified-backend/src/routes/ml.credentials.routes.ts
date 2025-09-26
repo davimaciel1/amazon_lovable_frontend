@@ -1,4 +1,5 @@
 import express from 'express';
+import axios from 'axios';
 import { pool } from '../config/database';
 import { optionalApiKey, requireApiKey } from '../middleware/apiKey.middleware';
 import { logger } from '../utils/logger';
@@ -82,6 +83,73 @@ router.get('/access-token', optionalApiKey, async (_req, res) => {
   } catch (e: any) {
     logger.error('Failed to get ML access token', e);
     return res.status(500).json({ error: e.message || 'Failed to get access token' });
+  }
+});
+
+// Exchange authorization code for tokens - FLUXO OAUTH CORRETO
+router.post('/oauth/exchange', optionalApiKey, async (req, res) => {
+  try {
+    const { code, redirectUri } = req.body;
+    
+    if (!code) {
+      return res.status(400).json({ error: 'Authorization code is required' });
+    }
+
+    const clientId = process.env.MERCADOLIVRE_APP_ID;
+    const clientSecret = process.env.MERCADOLIVRE_APP_SECRET;
+    
+    if (!clientId || !clientSecret) {
+      return res.status(500).json({ error: 'ML credentials not configured' });
+    }
+
+    console.log('🔄 Trocando authorization code por tokens...');
+    console.log('📋 Code:', code);
+    console.log('🔗 Redirect URI:', redirectUri);
+
+    // Fazer requisição com form-encoded data
+    const formData = new URLSearchParams();
+    formData.append('grant_type', 'authorization_code');
+    formData.append('client_id', clientId);
+    formData.append('client_secret', clientSecret);
+    formData.append('code', code);
+    formData.append('redirect_uri', redirectUri || 'https://api.appproft.com/api/v1/auth/mercadolivre/callback');
+
+    const response = await axios.post('https://api.mercadolibre.com/oauth/token', formData, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
+      }
+    });
+
+    const { access_token, refresh_token, token_type, expires_in } = response.data;
+
+    console.log('✅ Tokens obtidos com sucesso!');
+    console.log('🔑 Access Token:', access_token ? 'Recebido' : 'Não recebido');
+    console.log('🔄 Refresh Token:', refresh_token ? 'Recebido' : 'Não recebido');
+
+    // Store the refresh token in database
+    if (refresh_token) {
+      await upsert('ML_REFRESH_TOKEN', refresh_token);
+      await upsert('ML_ACCESS_TOKEN', access_token);
+      await upsert('ML_ACCESS_TOKEN_EXPIRES_IN', String(expires_in));
+      console.log('💾 Tokens armazenados no banco de dados');
+    }
+
+    return res.json({
+      success: true,
+      access_token,
+      refresh_token,
+      token_type,
+      expires_in,
+      message: 'Tokens obtained and stored successfully'
+    });
+
+  } catch (error: any) {
+    console.error('❌ Erro ao trocar code por tokens:', error.response?.data || error.message);
+    return res.status(500).json({ 
+      error: 'Failed to exchange authorization code',
+      details: error.response?.data || error.message
+    });
   }
 });
 

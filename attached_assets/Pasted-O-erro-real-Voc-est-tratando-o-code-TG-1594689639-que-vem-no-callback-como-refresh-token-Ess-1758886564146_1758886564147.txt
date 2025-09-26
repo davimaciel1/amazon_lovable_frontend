@@ -1,0 +1,68 @@
+O erro real
+
+Você está tratando o code=TG-…-1594689639 (que vem no callback) como refresh_token.
+Esse TG-… é o authorization code, de uso único e curto prazo. Se você manda isso para /oauth/token com grant_type=refresh_token, vai dar invalid_grant sempre.
+
+Como resolver (passo a passo, agora)
+
+Gere o code (OK, você já tem no callback).
+
+Troque o code por tokens (esse é o passo que faltou):
+
+curl -X POST https://api.mercadolibre.com/oauth/token \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  -d 'grant_type=authorization_code' \
+  -d 'client_id=6957271904463263' \
+  -d 'client_secret=SEU_CLIENT_SECRET' \
+  -d 'code=TG-68d67909a88d440001263d6b-1594689639' \
+  -d 'redirect_uri=https://api.appproft.com/api/v1/auth/mercadolivre/callback'
+
+
+Observações:
+
+O redirect_uri deve ser idêntico ao usado na autorização (o seu está certo).
+
+Faça essa troca imediatamente após receber o code.
+
+Se o seu endpoint /callback já troca o code automaticamente, então a sua chamada manual vai falhar com invalid_grant porque o code já foi usado. Nesse caso, olhe os logs do seu backend: os tokens devem ter sido emitidos lá.
+
+Guarde o refresh_token que vier na resposta (ele não começa com TG-…).
+
+Para renovar no futuro, use esse refresh mais recente:
+
+curl -X POST https://api.mercadolibre.com/oauth/token \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  -d 'grant_type=refresh_token' \
+  -d 'client_id=6957271904463263' \
+  -d 'client_secret=SEU_CLIENT_SECRET' \
+  -d 'refresh_token=O_REFRESH_QUE_VEIO_NO_PASSO_2'
+
+Checklist anti-invalid_grant
+
+code não é refresh; troque primeiro por tokens (grant authorization_code).
+
+O code só pode ser usado uma vez; se o backend já consumiu, gere outro.
+
+redirect_uri exatamente igual ao da autorização.
+
+Adicione scope=offline_access na URL de autorização para garantir que venha refresh_token.
+
+https://auth.mercadolivre.com.br/authorization?response_type=code
+  &client_id=6957271904463263
+  &redirect_uri=https%3A%2F%2Fapi.appproft.com%2Fapi%2Fv1%2Fauth%2Fmercadolivre%2Fcallback
+  &scope=offline_access
+  &state=xyz123
+
+Segurança
+
+Como seu client secret apareceu no print, gire/regenere o secret no painel antes de continuar.
+
+Se quiser, te mando um script que:
+
+abre a URL de autorização,
+
+captura o code,
+
+troca automaticamente por access_token + refresh_token,
+
+e já grava no seu endpoint /api/ml/credentials/upsert.
