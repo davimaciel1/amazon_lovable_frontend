@@ -344,6 +344,11 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
         // Derive backend origin from API base (e.g., http://localhost:8080/api -> http://localhost:8080)
         const apiBase = (import.meta.env.VITE_API_URL as string) || 'http://localhost:8080/api';
         const backendOrigin = apiBase.replace(/\/?api\/?$/, '');
+        const absolutize = (path: string) => {
+          if (!path) return path;
+          const normalized = path.startsWith('/') ? path : `/${path}`;
+          return `${backendOrigin}${normalized}`;
+        };
 
         if (rawImageUrl) {
           if (rawImageUrl.startsWith('http')) {
@@ -356,12 +361,16 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
           } else {
             // Relative paths: route through /app proxy so backend can dynamically fetch/placeholder when local file is missing
             if (rawImageUrl.startsWith('/app/') || rawImageUrl.startsWith('/api/')) {
-              imageUrl = rawImageUrl; // already proxied paths - don't double-prefix!
+              imageUrl = absolutize(rawImageUrl);
             } else if (rawImageUrl.startsWith('/product-images/')) {
-              imageUrl = `/app${rawImageUrl}`;
+              imageUrl = absolutize(`/app${rawImageUrl}`);
+            } else if (rawImageUrl.startsWith('app/') || rawImageUrl.startsWith('api/')) {
+              imageUrl = absolutize(`/${rawImageUrl}`);
+            } else if (rawImageUrl.startsWith('product-images/')) {
+              imageUrl = absolutize(`/app/${rawImageUrl}`);
             } else {
               // Any other relative path — prefix with backend origin as a fallback
-              imageUrl = `${backendOrigin}${rawImageUrl.startsWith('/') ? '' : '/'}${rawImageUrl}`;
+              imageUrl = absolutize(rawImageUrl);
             }
           }
         }

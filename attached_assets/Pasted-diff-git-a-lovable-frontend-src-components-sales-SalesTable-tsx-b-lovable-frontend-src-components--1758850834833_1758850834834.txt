@@ -1,0 +1,85 @@
+diff --git a/lovable-frontend/src/components/sales/SalesTable.tsx b/lovable-frontend/src/components/sales/SalesTable.tsx
+index 5516085916065e12f6a228a98a9a65a3c35352e0..d612d6cc06fee44b88937f3507d572c01a803227 100644
+--- a/lovable-frontend/src/components/sales/SalesTable.tsx
++++ b/lovable-frontend/src/components/sales/SalesTable.tsx
+@@ -322,68 +322,77 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
+       sku,
+       title: title || 'Product',
+       marketplace: marketplace || 'usa',
+       marketplaceId,
+     });
+   };
+ 
+   const closeOrdersModal = () => {
+     setOrdersModal(prev => ({ ...prev, isOpen: false }));
+   };
+ 
+   const columns = useMemo<ColumnDef<SalesRow>[]>(() => [
+     {
+       id: 'image',
+       header: () => <div className="text-left font-semibold">PRODUCT</div>,
+       cell: ({ row }) => {
+         const title = row.original.title;
+         // Get image URL from backend - try both field names
+         const rawImageUrl = row.original.imageUrl || row.original.image_url || null;
+         
+         // Construct absolute image URL against backend origin
+         let imageUrl = rawImageUrl;
+         // Derive backend origin from API base (e.g., http://localhost:8080/api -> http://localhost:8080)
+         const apiBase = (import.meta.env.VITE_API_URL as string) || 'http://localhost:8080/api';
+         const backendOrigin = apiBase.replace(/\/?api\/?$/, '');
++        const absolutize = (path: string) => {
++          if (!path) return path;
++          const normalized = path.startsWith('/') ? path : `/${path}`;
++          return `${backendOrigin}${normalized}`;
++        };
+ 
+         if (rawImageUrl) {
+           if (rawImageUrl.startsWith('http')) {
+             // If it's an Amazon CDN URL, go through backend proxy to avoid CORS
+             if (rawImageUrl.includes('amazon.com') || rawImageUrl.includes('media-amazon.com')) {
+               imageUrl = `${apiBase}/image-proxy?url=${encodeURIComponent(rawImageUrl)}`;
+             } else {
+               imageUrl = rawImageUrl;
+             }
+           } else {
+             // Relative paths: route through /app proxy so backend can dynamically fetch/placeholder when local file is missing
+             if (rawImageUrl.startsWith('/app/') || rawImageUrl.startsWith('/api/')) {
+-              imageUrl = rawImageUrl; // already proxied paths - don't double-prefix!
++              imageUrl = absolutize(rawImageUrl);
+             } else if (rawImageUrl.startsWith('/product-images/')) {
+-              imageUrl = `/app${rawImageUrl}`;
++              imageUrl = absolutize(`/app${rawImageUrl}`);
++            } else if (rawImageUrl.startsWith('app/') || rawImageUrl.startsWith('api/')) {
++              imageUrl = absolutize(`/${rawImageUrl}`);
++            } else if (rawImageUrl.startsWith('product-images/')) {
++              imageUrl = absolutize(`/app/${rawImageUrl}`);
+             } else {
+               // Any other relative path — prefix with backend origin as a fallback
+-              imageUrl = `${backendOrigin}${rawImageUrl.startsWith('/') ? '' : '/'}${rawImageUrl}`;
++              imageUrl = absolutize(rawImageUrl);
+             }
+           }
+         }
+ 
+         // Determine marketplace type early for image URL logic
+         let marketplaceType: 'amazon' | 'mercadolivre' = 'amazon';
+         const marketplaceId = row.original.marketplace_id || 'ATVPDKIKX0DER';
+         if (typeof marketplaceId === 'string' && marketplaceId.toUpperCase().startsWith('ML')) {
+           marketplaceType = 'mercadolivre';
+         }
+ 
+         // Fallback: generate image URL from ASIN if backend didn't send one
+         if (!imageUrl && row.original.asin) {
+           try {
+             // For ML products, use the displayCode for consistency
+             let codeForImageUrl: string;
+             if (marketplaceType === 'mercadolivre') {
+               // Get MLB code from SKU mapping to ensure image/display consistency
+               const mlbCode = getMLBFromSKU(row.original.sku || row.original.asin);
+               // Use MLB code if available, otherwise original SKU
+               codeForImageUrl = mlbCode || row.original.sku || row.original.asin;
+             } else {
+               // For Amazon, use ASIN as usual
+               codeForImageUrl = row.original.asin;
+             }
