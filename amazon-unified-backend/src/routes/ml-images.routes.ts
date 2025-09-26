@@ -215,4 +215,69 @@ router.get('/ml-status', requireAuthOrApiKey, async (_req: Request, res: Respons
   }
 });
 
+// Sync all tables with correct MLB codes
+router.post('/sync-all-tables', requireAuthOrApiKey, async (_req: Request, res: Response) => {
+  try {
+    console.log('🚀 Starting complete database synchronization...');
+    
+    const ML_SYNC_MAPPINGS = {
+      'IPP-PV-01': 'MLB4100879553',
+      'IPP-PV-02': 'MLB4100879555', 
+      'IPP-PV-03': 'MLB4100879557',
+      'IPP-PV-04': 'MLB4100879559',
+      'IPP-PV-05': 'MLB4100879561',
+      'IPAS01': 'MLB3628967960',
+      'IPAS02': 'MLB4258563772', 
+      'IPAS04': 'MLB2882967139'
+    };
+
+    await pool.query('BEGIN');
+    let totalUpdated = 0;
+
+    for (const [sku, correctMLB] of Object.entries(ML_SYNC_MAPPINGS)) {
+      console.log(`🔧 Syncing ${sku} -> ${correctMLB}`);
+
+      // Update products table
+      const productResult = await pool.query(
+        'UPDATE products SET asin = $1 WHERE sku = $2 OR asin LIKE $3',
+        [correctMLB, sku, `%${sku}%`]
+      );
+
+      // Update order_items table (this is the key fix!)
+      const orderItemsResult = await pool.query(
+        'UPDATE order_items SET asin = $1 WHERE seller_sku = $2 OR asin LIKE $3',
+        [correctMLB, sku, `%${sku}%`]
+      );
+
+      const updated = (productResult.rowCount || 0) + (orderItemsResult.rowCount || 0);
+      totalUpdated += updated;
+      
+      console.log(`  ✅ Updated ${updated} rows (products: ${productResult.rowCount || 0}, order_items: ${orderItemsResult.rowCount || 0})`);
+    }
+
+    await pool.query('COMMIT');
+    console.log(`🎉 COMPLETE SYNC FINISHED! Updated ${totalUpdated} total rows`);
+
+    // Clear image cache
+    imageCache.flushAll();
+    console.log('✅ Image cache cleared after sync');
+
+    res.json({
+      success: true,
+      message: 'Database synchronization completed successfully',
+      totalUpdated,
+      clearedCache: true
+    });
+
+  } catch (error) {
+    await pool.query('ROLLBACK');
+    console.error('❌ Sync failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Database synchronization failed',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
 export default router;
