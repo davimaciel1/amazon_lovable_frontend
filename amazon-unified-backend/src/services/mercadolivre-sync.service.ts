@@ -20,13 +20,13 @@ class MercadoLivreSyncService {
     const map: Record<string, string> = {};
     for (const r of res.rows) map[r.credential_key] = r.credential_value;
 
-    const clientId = map.ML_CLIENT_ID || process.env.ML_CLIENT_ID;
-    const clientSecret = map.ML_CLIENT_SECRET || process.env.ML_CLIENT_SECRET;
+    const clientId = map.ML_CLIENT_ID || process.env.MERCADOLIVRE_APP_ID;
+    const clientSecret = map.ML_CLIENT_SECRET || process.env.MERCADOLIVRE_APP_SECRET;
     const refreshToken = map.ML_REFRESH_TOKEN;
     const sellerId = map.ML_SELLER_ID || map.ML_USER_ID;
 
     if (!clientId || !clientSecret || !refreshToken || !sellerId) {
-      throw new Error('Missing Mercado Livre credentials (ML_CLIENT_ID/ML_CLIENT_SECRET/ML_REFRESH_TOKEN/ML_SELLER_ID)');
+      throw new Error('Missing Mercado Livre credentials (MERCADOLIVRE_APP_ID/MERCADOLIVRE_APP_SECRET/ML_REFRESH_TOKEN/ML_SELLER_ID)');
     }
     return { clientId, clientSecret, refreshToken, sellerId };
   }

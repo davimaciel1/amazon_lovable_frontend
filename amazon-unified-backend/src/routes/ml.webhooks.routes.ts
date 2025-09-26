@@ -113,7 +113,7 @@ router.post('/simulate', async (req, res) => {
     user_id: user_id.toString(),
     topic,
     resource,
-    application_id: process.env.ML_CLIENT_ID || 'test',
+    application_id: process.env.MERCADOLIVRE_APP_ID || 'test',
     attempts: 1,
     sent: new Date().toISOString(),
     received: new Date().toISOString()

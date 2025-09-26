@@ -44,7 +44,7 @@ function isAllowedRedirect(uri: string): boolean {
 // Start OAuth: redirect to Mercado Livre auth page
 router.get('/start', async (req, res) => {
   try {
-    const clientId = getEnv('ML_CLIENT_ID');
+    const clientId = getEnv('MERCADOLIVRE_APP_ID');
     const redirectParam = (req.query.redirect as string | undefined) || process.env.ML_REDIRECT_URI || '';
     const useRedirect = isAllowedRedirect(redirectParam) ? redirectParam : getEnv('ML_REDIRECT_URI');
     const state = (req.query.state as string | undefined) || '';
@@ -78,8 +78,8 @@ router.get('/callback', async (req, res) => {
     const codeVerifier = req.query.code_verifier as string | undefined;
     if (!code) return res.status(400).json({ error: 'Missing code' });
 
-    const clientId = getEnv('ML_CLIENT_ID');
-    const clientSecret = getEnv('ML_CLIENT_SECRET');
+    const clientId = getEnv('MERCADOLIVRE_APP_ID');
+    const clientSecret = getEnv('MERCADOLIVRE_APP_SECRET');
     const redirectUri = getEnv('ML_REDIRECT_URI');
 
     const params = new URLSearchParams();
@@ -141,8 +141,8 @@ router.post('/exchange', requireApiKey, async (req, res) => {
     // Load client credentials from DB or env
     const clientIdRes = await pool.query("SELECT credential_value FROM ml_credentials WHERE credential_key = 'ML_CLIENT_ID' LIMIT 1");
     const clientSecretRes = await pool.query("SELECT credential_value FROM ml_credentials WHERE credential_key = 'ML_CLIENT_SECRET' LIMIT 1");
-    const clientId = (clientIdRes.rows[0]?.credential_value as string) || process.env.ML_CLIENT_ID;
-    const clientSecret = (clientSecretRes.rows[0]?.credential_value as string) || process.env.ML_CLIENT_SECRET;
+    const clientId = (clientIdRes.rows[0]?.credential_value as string) || process.env.MERCADOLIVRE_APP_ID;
+    const clientSecret = (clientSecretRes.rows[0]?.credential_value as string) || process.env.MERCADOLIVRE_APP_SECRET;
     if (!clientId || !clientSecret) {
       return res.status(500).json({ error: 'ML client credentials not configured' });
     }
@@ -191,8 +191,8 @@ router.post('/exchange-dev', optionalApiKey, async (req, res) => {
     if (!code || !redirect_uri) return res.status(400).json({ error: 'Missing code or redirect_uri' });
     if (!isAllowedRedirect(redirect_uri)) return res.status(400).json({ error: 'redirect_uri not allowed' });
 
-    const clientId = process.env.ML_CLIENT_ID as string;
-    const clientSecret = process.env.ML_CLIENT_SECRET as string;
+    const clientId = process.env.MERCADOLIVRE_APP_ID as string;
+    const clientSecret = process.env.MERCADOLIVRE_APP_SECRET as string;
     if (!clientId || !clientSecret) return res.status(500).json({ error: 'ML client credentials not configured' });
 
     const params = new URLSearchParams();
