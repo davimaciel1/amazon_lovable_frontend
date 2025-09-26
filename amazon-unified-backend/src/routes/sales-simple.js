@@ -265,6 +265,9 @@ router.get('/', async (req, res) => {
         s.stock,
         s.seller_count,
         s.buy_box_seller,
+        p2.image_url,
+        p2.local_image_url,
+        p2.image_source_url,
         p2.compra,
         p2.armazenagem,
         p2.frete_amazon,
@@ -423,6 +426,9 @@ router.get('/', async (req, res) => {
           s.stock,
           s.seller_count,
           s.buy_box_seller,
+          p2.image_url,
+          p2.local_image_url,
+          p2.image_source_url,
           p2.compra,
           p2.armazenagem,
           p2.frete_amazon,
@@ -494,7 +500,10 @@ router.get('/', async (req, res) => {
                  marketplace_id,
                  inventory_quantity as stock,
                  seller_count,
-                 buy_box_seller
+                 buy_box_seller,
+                 image_url,
+                 local_image_url,
+                 image_source_url
           FROM products
           WHERE asin IS NOT NULL
           ORDER BY updated_at DESC NULLS LAST
@@ -522,6 +531,9 @@ router.get('/', async (req, res) => {
             custo_variavel_percent: null,
             margem_contribuicao_percent: null,
             custos_manuais: false,
+            image_url: p.image_url,
+            local_image_url: p.local_image_url,
+            image_source_url: p.image_source_url,
           }))
         };
       } catch (e) {
@@ -536,7 +548,8 @@ router.get('/', async (req, res) => {
       if (asins.length > 0) {
         const placeholders = asins.map((_, i) => `$${i + 1}`).join(',');
         const mapRes = await pool.query(
-          `SELECT asin, inventory_quantity AS stock, seller_count, buy_box_seller FROM products WHERE asin IN (${placeholders})`,
+          `SELECT asin, inventory_quantity AS stock, seller_count, buy_box_seller, image_url, local_image_url, image_source_url
+           FROM products WHERE asin IN (${placeholders})`,
           asins
         );
         const overlay = new Map(mapRes.rows.map(r => [r.asin, r]));
@@ -546,6 +559,9 @@ router.get('/', async (req, res) => {
             r.stock = o.stock;
             r.seller_count = o.seller_count;
             r.buy_box_seller = o.buy_box_seller;
+            if (!r.image_url && o.image_url) r.image_url = o.image_url;
+            if (!r.local_image_url && o.local_image_url) r.local_image_url = o.local_image_url;
+            if (!r.image_source_url && o.image_source_url) r.image_source_url = o.image_source_url;
           }
         }
       }
@@ -555,10 +571,6 @@ router.get('/', async (req, res) => {
 
     // Transform data for frontend with standardized image URLs
     const salesData = result.rows.map((row, index) => {
-      // Generate Base64 ID from ASIN
-      const base64Id = Buffer.from(row.asin).toString('base64');
-      const imageUrl = `/app/product-images/${base64Id}.jpg`;
-
       const units = parseInt(row.units) || 0;
       const revenue = parseFloat(row.revenue) || 0;
 
@@ -566,6 +578,41 @@ router.get('/', async (req, res) => {
       const stock = row.stock !== null && row.stock !== undefined ? Number(row.stock) : 0;
       const sellersCount = row.seller_count !== null && row.seller_count !== undefined ? Number(row.seller_count) : null;
       const buyBoxSeller = row.buy_box_seller || null;
+
+      const normalizeRemoteUrl = (value) => {
+        if (!value || typeof value !== 'string') return null;
+        const trimmed = value.trim();
+        if (!trimmed) return null;
+        if (trimmed.startsWith('http://')) {
+          return trimmed.replace('http://', 'https://');
+        }
+        return trimmed;
+      };
+
+      const normalizeLocalPath = (value) => {
+        if (!value || typeof value !== 'string') return null;
+        const trimmed = value.trim();
+        if (!trimmed) return null;
+        if (trimmed.startsWith('http')) {
+          return normalizeRemoteUrl(trimmed);
+        }
+        return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+      };
+
+      const localImageUrl = normalizeLocalPath(row.local_image_url);
+      const productImageUrl = normalizeRemoteUrl(row.image_url);
+      const sourceImageUrl = normalizeRemoteUrl(row.image_source_url);
+
+      let resolvedImageUrl = localImageUrl || productImageUrl || sourceImageUrl;
+
+      if (!resolvedImageUrl && row.asin) {
+        try {
+          const base64Id = Buffer.from(String(row.asin)).toString('base64');
+          resolvedImageUrl = `/app/product-images/${base64Id}.jpg`;
+        } catch (e) {
+          resolvedImageUrl = null;
+        }
+      }
 
       // Costs from products table (per unit and percentages over revenue)
       const compra = row.compra !== null && row.compra !== undefined ? Number(row.compra) : null;
@@ -598,8 +645,10 @@ router.get('/', async (req, res) => {
         asin: row.asin,
         title: row.product,
         product: row.product,
-        image_url: imageUrl,
-        imageUrl: imageUrl,
+        image_url: resolvedImageUrl,
+        imageUrl: resolvedImageUrl,
+        local_image_url: localImageUrl,
+        image_source_url: sourceImageUrl,
         marketplace_id: row.marketplace_id || 'ATVPDKIKX0DER',
         units,
         revenue,
