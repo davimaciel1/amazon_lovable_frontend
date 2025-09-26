@@ -286,8 +286,11 @@ router.get('/', requireAuthOrApiKey, async (req: Request, res: Response) => {
         roi = cogsTotal > 0 ? (profit / cogsTotal) * 100 : null;
       }
 
+      // Use real ML item ID when available, otherwise use ASIN for Amazon products
+      const realId = row.ml_item_id || asin;
+      
       return {
-        id: `${asin}-${index}`,
+        id: realId,
         sku: row.sku || asin,
         asin,
         product: row.product || asin,
