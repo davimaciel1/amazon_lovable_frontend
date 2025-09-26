@@ -280,8 +280,8 @@ router.post('/clean-fake-products', requireAuthOrApiKey, async (_req: Request, r
     
     await pool.query('BEGIN');
     
-    // Products to remove completely (fake/invented)
-    const fakeProducts = ['B0CLBFSQH1', 'MLB5649953084', 'MLB4061138537'];
+    // Products to remove completely (fake/invented) - ONLY genuinely fake products
+    const fakeProducts = ['MLB4061138537']; // iPhone 15 Pro Max inventado
     
     // Products with hardcoded SVG images to clean
     const svgProducts = ['IPAS01', 'IPAS02', 'IPAS03', 'IPAS04', 'IPP-PV-02', 'IPP-PV-04', 'IPP-PV-05'];
