@@ -7,13 +7,16 @@
 import { Pool, PoolConfig } from 'pg';
 import { logger } from '../utils/logger';
 
-// Database configuration - Use Replit DATABASE_URL (auto-configured)
+// Database configuration - NEVER CHANGE IN PRODUCTION
 const dbConfig: PoolConfig = {
-  connectionString: process.env.DATABASE_URL,
-  max: 20,
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432'),
+  database: process.env.DB_NAME || 'app',
+  user: process.env.DB_USER || 'app',
+  password: process.env.DB_PASSWORD || '',
+  max: 20, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
-  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false },
 };
 
 // Create connection pool

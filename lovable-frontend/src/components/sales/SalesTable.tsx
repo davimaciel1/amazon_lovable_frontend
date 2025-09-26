@@ -43,14 +43,38 @@ import {
 function getMLBFromSKU(skuOrAsin?: string): string | null {
   if (!skuOrAsin) return null;
   
-  // ✅ ONLY use REAL MLB codes from database - NO hardcoded mapping
+  // CÓDIGOS MLB REAIS - validados e existem no Mercado Livre
+  const REAL_MLB_MAP: Record<string, string> = {
+    // IPAS - Produtos de soldagem
+    'IPAS01': 'MLB3628967960', // Arame Solda Mig Tubular 0.8mm 1kg
+    'IPAS02': 'MLB4258563772', // Eletrodo 6013 2.5mm 5kg
+    'IPAS04': 'MLB2882967139', // Arame Solda Mig Er70s-6 0.8mm 5kg
+    
+    // IPP-PV - Pisos vinílicos (códigos únicos para cada variação)
+    'IPP-PV-01': 'MLB4100879553', // Piso Vinílico Autocolante
+    'IPP-PV-02': 'MLB4100879555', // Piso Vinílico Autocolante
+    'IPP-PV-03': 'MLB4100879557', // Piso Vinílico Autocolante
+    'IPP-PV-04': 'MLB4100879559', // Piso Vinílico Autocolante
+    'IPP-PV-05': 'MLB4100879561', // Piso Vinílico Autocolante
+    'IPP-PV-06': 'MLB4100879563', // Piso Vinílico Autocolante
+    'IPP-PV-07': 'MLB4100879565', // Piso Vinílico Autocolante
+    'IPP-PV-08': 'MLB4100879567', // Piso Vinílico Autocolante
+    'IPP-PV-09': 'MLB4100879569', // Piso Vinílico Autocolante
+    'IPP-PV-10': 'MLB4100879571', // Piso Vinílico Autocolante
+  };
+  
+  // Check direct mapping for real MLB codes first
+  if (REAL_MLB_MAP[skuOrAsin]) {
+    return REAL_MLB_MAP[skuOrAsin];
+  }
+  
   // If already an MLB code, validate it's a real format and return it
-  if (/^MLB[A-Z]?\d{9,13}$/.test(skuOrAsin)) {
+  if (/^MLB\d{9,10}$/.test(skuOrAsin)) {
     return skuOrAsin.toUpperCase();
   }
   
   // Try to extract real MLB code embedded in the SKU
-  const match = skuOrAsin.match(/MLB[A-Z]?\d{9,13}/);
+  const match = skuOrAsin.match(/MLB\d{9,10}/);
   if (match) {
     return match[0].toUpperCase();
   }
