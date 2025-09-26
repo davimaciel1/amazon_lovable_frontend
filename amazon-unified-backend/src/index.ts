@@ -48,6 +48,7 @@ import { mlWebhooksRouter } from './routes/ml.webhooks.routes';
 import { mlBidirectionalSyncRouter } from './routes/ml.bidirectional-sync.routes';
 import { costsRouter } from './routes/costs.routes';
 import mlImagesRouter from './routes/ml-images.routes';
+import { createMLRealMappingsRoutes } from './routes/ml-real-mappings.routes';
 import dataIntegrityRouter from './routes/data-integrity.routes';
 
 let salesSimpleRouter: any;
@@ -246,6 +247,7 @@ app.use('/api/ml/credentials', mlCredentialsRouter);
 app.use('/api/ml/sync', mlSyncRouter);
 app.use('/api/ml/webhooks', mlWebhooksRouter);
 app.use('/api/ml/bidirectional-sync', mlBidirectionalSyncRouter);
+app.use('/api/ml-real-mappings', createMLRealMappingsRoutes(pool));
 app.use('/api/costs', costsRouter);
 app.use('/api/ml-images', mlImagesRouter);
 app.use('/api/products', productsRouter);

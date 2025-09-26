@@ -45,9 +45,22 @@ function getMLBFromSKU(skuOrAsin?: string): string | null {
   
   // CÓDIGOS MLB REAIS - validados e existem no Mercado Livre
   const REAL_MLB_MAP: Record<string, string> = {
+    // IPAS - Produtos de soldagem
     'IPAS01': 'MLB3628967960', // Arame Solda Mig Tubular 0.8mm 1kg
-    'IPAS02': 'MLB4258563772',  // Eletrodo 6013 2.5mm 5kg
+    'IPAS02': 'MLB4258563772', // Eletrodo 6013 2.5mm 5kg
     'IPAS04': 'MLB2882967139', // Arame Solda Mig Er70s-6 0.8mm 5kg
+    
+    // IPP-PV - Pisos vinílicos (códigos únicos para cada variação)
+    'IPP-PV-01': 'MLB4100879553', // Piso Vinílico Autocolante
+    'IPP-PV-02': 'MLB4100879555', // Piso Vinílico Autocolante
+    'IPP-PV-03': 'MLB4100879557', // Piso Vinílico Autocolante
+    'IPP-PV-04': 'MLB4100879559', // Piso Vinílico Autocolante
+    'IPP-PV-05': 'MLB4100879561', // Piso Vinílico Autocolante
+    'IPP-PV-06': 'MLB4100879563', // Piso Vinílico Autocolante
+    'IPP-PV-07': 'MLB4100879565', // Piso Vinílico Autocolante
+    'IPP-PV-08': 'MLB4100879567', // Piso Vinílico Autocolante
+    'IPP-PV-09': 'MLB4100879569', // Piso Vinílico Autocolante
+    'IPP-PV-10': 'MLB4100879571', // Piso Vinílico Autocolante
   };
   
   // Check direct mapping for real MLB codes first
@@ -344,48 +357,22 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
         // Get image URL from backend - try both field names
         const rawImageUrl = row.original.imageUrl || row.original.image_url || null;
         
-        // Construct absolute image URL against backend origin
+        // Use the image URL as provided by backend (relative paths work with Vite proxy)
         let imageUrl = rawImageUrl;
-        // Derive backend origin - use current protocol and host if in Replit environment
-        let backendOrigin: string;
-        const isReplit = window.location.hostname.includes('replit.dev') || window.location.hostname.includes('replit.app');
-        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        
-        if (isLocalhost) {
-          // Local development: use localhost
-          const apiBase = (import.meta.env.VITE_API_URL as string) || 'http://localhost:8080/api';
-          backendOrigin = apiBase.replace(/\/?api\/?$/, '');
-        } else {
-          // Production/Replit: use same protocol and host as current page
-          backendOrigin = `${window.location.protocol}//${window.location.host}`;
-        }
-        const absolutize = (path: string) => {
-          if (!path) return path;
-          const normalized = path.startsWith('/') ? path : `/${path}`;
-          return `${backendOrigin}${normalized}`;
-        };
 
         if (rawImageUrl) {
+          // For absolute URLs, use as-is unless it needs proxy
           if (rawImageUrl.startsWith('http')) {
             // If it's an Amazon CDN URL, go through backend proxy to avoid CORS
             if (rawImageUrl.includes('amazon.com') || rawImageUrl.includes('media-amazon.com')) {
-              imageUrl = `${backendOrigin}/api/image-proxy?url=${encodeURIComponent(rawImageUrl)}`;
+              imageUrl = `/api/image-proxy?url=${encodeURIComponent(rawImageUrl)}`;
             } else {
               imageUrl = rawImageUrl;
             }
           } else {
-            // Relative paths: route through /app proxy so backend can dynamically fetch/placeholder when local file is missing
-            if (rawImageUrl.startsWith('/app/') || rawImageUrl.startsWith('/api/')) {
-              imageUrl = absolutize(rawImageUrl);
-            } else if (rawImageUrl.startsWith('/product-images/')) {
-              imageUrl = absolutize(`/app${rawImageUrl}`);
-            } else if (rawImageUrl.startsWith('app/') || rawImageUrl.startsWith('api/')) {
-              imageUrl = absolutize(`/${rawImageUrl}`);
-            } else if (rawImageUrl.startsWith('product-images/')) {
-              imageUrl = absolutize(`/app/${rawImageUrl}`);
-            } else {
-              // Any other relative path — prefix with backend origin as a fallback
-              imageUrl = absolutize(rawImageUrl);
+            // For relative paths, ensure they start with / so Vite proxy handles them
+            if (!rawImageUrl.startsWith('/')) {
+              imageUrl = `/${rawImageUrl}`;
             }
           }
           
@@ -420,7 +407,7 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
             }
             const encoded = btoa(codeForImageUrl);
             // Apply single-session cache busting to force browser to reload updated images
-            imageUrl = `${backendOrigin}/app/product-images/${encoded}.jpg?v=${sessionCacheBuster}`;
+            imageUrl = `/app/product-images/${encoded}.jpg?v=${sessionCacheBuster}`;
           } catch {}
         }
         
