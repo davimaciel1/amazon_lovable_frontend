@@ -354,4 +354,339 @@ router.post('/clean-fake-products', requireAuthOrApiKey, async (_req: Request, r
   }
 });
 
+// ============================================================================
+// 🚫 NEVER USE HARDCODED/FAKE DATA - ONLY REAL API DATA
+// ============================================================================
+// 
+// CRITICAL RULES FOR DATA INTEGRITY:
+// 
+// ❌ NEVER create hardcoded images (SVG, data:image, or placeholders)
+// ❌ NEVER invent fake products, ASINs, or MLB codes
+// ❌ NEVER use mock data in production paths
+// ❌ NEVER put one product's image on another product
+// 
+// ✅ ALWAYS use real images from official APIs (Amazon, Mercado Livre)
+// ✅ ALWAYS validate data authenticity before storing
+// ✅ ALWAYS use proper MLB codes from ML API responses
+// ✅ ALWAYS ensure image URLs match the correct product
+//
+// This system must maintain 100% authentic data integrity.
+// ============================================================================
+
+// Automated Data Integrity Validation System
+router.post('/validate-data-integrity', requireAuthOrApiKey, async (_req: Request, res: Response) => {
+  try {
+    console.log('🔍 Starting comprehensive data integrity validation...');
+    
+    const issues: any[] = [];
+    let fixedCount = 0;
+    
+    // Import the ML lookup service
+    const { mercadoLivreLookupService } = await import('../services/mercadolivre-lookup.service');
+    
+    // Step 1: Find products with NULL or invalid images
+    console.log('📋 Step 1: Identifying products with missing or invalid images');
+    const invalidImagesQuery = `
+      SELECT asin, sku, title, image_url, image_source_url, marketplace_id
+      FROM products 
+      WHERE marketplace_id = 'MLB' 
+        AND (
+          image_url IS NULL 
+          OR image_url = '' 
+          OR image_url LIKE 'data:image/svg+xml%'
+          OR image_url LIKE '%/app/product-images/SVB%'
+        )
+      ORDER BY asin
+    `;
+    
+    const invalidImages = await pool.query(invalidImagesQuery);
+    console.log(`🔍 Found ${invalidImages.rows.length} products with image issues`);
+    
+    // Step 2: Auto-fix missing images using ML API
+    for (const product of invalidImages.rows) {
+      const { asin, sku, title } = product;
+      
+      try {
+        console.log(`🔧 Fixing images for: ${asin} (${sku})`);
+        
+        let mlbCode = null;
+        
+        // Determine correct MLB code
+        if (asin.startsWith('MLB')) {
+          mlbCode = asin;
+        } else if (ML_PRODUCT_MAPPINGS[asin] || ML_PRODUCT_MAPPINGS[sku]) {
+          const mapping = ML_PRODUCT_MAPPINGS[asin] || ML_PRODUCT_MAPPINGS[sku];
+          mlbCode = mapping.mlb;
+        } else {
+          mlbCode = await mercadoLivreLookupService.findMLBForSKU(sku, title);
+        }
+        
+        if (!mlbCode) {
+          issues.push({
+            type: 'missing_mlb_code',
+            asin,
+            sku,
+            title,
+            issue: 'No valid MLB code found'
+          });
+          continue;
+        }
+        
+        // Get real image from ML API
+        const realImageUrl = await mercadoLivreLookupService.getHighQualityImage(mlbCode);
+        
+        if (!realImageUrl) {
+          issues.push({
+            type: 'missing_image_api',
+            asin,
+            sku,
+            mlbCode,
+            issue: 'ML API returned no image'
+          });
+          continue;
+        }
+        
+        // Validate that image URL is authentic (not hardcoded)
+        if (realImageUrl.includes('data:image') || realImageUrl.includes('placeholder')) {
+          issues.push({
+            type: 'invalid_image_type',
+            asin,
+            sku,
+            mlbCode,
+            imageUrl: realImageUrl,
+            issue: 'Image URL appears to be hardcoded/placeholder'
+          });
+          continue;
+        }
+        
+        // Update with real image
+        await pool.query(
+          `UPDATE products 
+           SET image_url = $1, image_source_url = $2, asin = $3, updated_at = NOW()
+           WHERE asin = $4 OR sku = $4`,
+          [realImageUrl, realImageUrl, mlbCode, asin]
+        );
+        
+        fixedCount++;
+        console.log(`✅ Fixed ${asin} -> ${mlbCode} with real image: ${realImageUrl.substring(0, 60)}...`);
+        
+        // Respect API rate limits
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+      } catch (error: any) {
+        console.error(`❌ Error fixing ${asin}:`, error.message);
+        issues.push({
+          type: 'fix_error',
+          asin,
+          sku,
+          error: error.message
+        });
+      }
+    }
+    
+    // Step 3: Validate for cross-contaminated images
+    console.log('📋 Step 3: Checking for cross-contaminated product images');
+    const duplicateImagesQuery = `
+      SELECT image_url, array_agg(asin) as asins, COUNT(*) as count
+      FROM products 
+      WHERE image_url IS NOT NULL 
+        AND image_url != ''
+        AND marketplace_id = 'MLB'
+      GROUP BY image_url 
+      HAVING COUNT(*) > 1
+      ORDER BY count DESC
+    `;
+    
+    const duplicateImages = await pool.query(duplicateImagesQuery);
+    
+    for (const duplicate of duplicateImages.rows) {
+      issues.push({
+        type: 'duplicate_image',
+        imageUrl: duplicate.image_url,
+        asins: duplicate.asins,
+        count: duplicate.count,
+        issue: 'Same image used for multiple products'
+      });
+    }
+    
+    // Step 4: Check for invalid MLB codes
+    console.log('📋 Step 4: Validating MLB code formats');
+    const invalidMLBQuery = `
+      SELECT asin, sku, title
+      FROM products 
+      WHERE marketplace_id = 'MLB'
+        AND asin NOT SIMILAR TO 'MLB[0-9]{9,10}'
+        AND asin NOT LIKE 'IPP-%'
+        AND asin NOT LIKE 'IPAS%'
+      ORDER BY asin
+    `;
+    
+    const invalidMLB = await pool.query(invalidMLBQuery);
+    
+    for (const product of invalidMLB.rows) {
+      issues.push({
+        type: 'invalid_mlb_format',
+        asin: product.asin,
+        sku: product.sku,
+        title: product.title,
+        issue: 'Invalid MLB code format'
+      });
+    }
+    
+    // Clear image cache to force refresh
+    imageCache.flushAll();
+    console.log('✅ Image cache cleared');
+    
+    console.log(`🎉 VALIDATION COMPLETED! Fixed ${fixedCount} images, found ${issues.length} issues`);
+    
+    res.json({
+      success: true,
+      message: 'Data integrity validation completed',
+      stats: {
+        totalChecked: invalidImages.rows.length,
+        imagesFixed: fixedCount,
+        issuesFound: issues.length,
+        duplicateImages: duplicateImages.rows.length
+      },
+      issues: issues.slice(0, 50), // Return first 50 issues
+      guidelines: {
+        "NEVER_USE": [
+          "Hardcoded SVG images",
+          "Fake/invented products",
+          "Mock data in production",
+          "One product's image on another"
+        ],
+        "ALWAYS_USE": [
+          "Real API images from ML/Amazon",
+          "Validated MLB codes",
+          "Authentic product data",
+          "Proper image-to-product mapping"
+        ]
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Data integrity validation failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Data integrity validation failed',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+// Automated Image Sync for Missing Images
+router.post('/auto-sync-missing-images', requireAuthOrApiKey, async (_req: Request, res: Response) => {
+  try {
+    console.log('🔄 Starting automatic image synchronization for missing images...');
+    
+    // Import the ML lookup service
+    const { mercadoLivreLookupService } = await import('../services/mercadolivre-lookup.service');
+    
+    // Find products with missing or error images
+    const missingImagesQuery = `
+      SELECT asin, sku, title, marketplace_id
+      FROM products 
+      WHERE marketplace_id = 'MLB' 
+        AND (
+          image_url IS NULL 
+          OR image_url = '' 
+          OR image_url LIKE '%/app/product-images/SVB%'
+        )
+      ORDER BY asin
+      LIMIT 20
+    `;
+    
+    const missingImages = await pool.query(missingImagesQuery);
+    console.log(`🔍 Found ${missingImages.rows.length} products needing image sync`);
+    
+    let syncedCount = 0;
+    const syncResults: any[] = [];
+    
+    for (const product of missingImages.rows) {
+      const { asin, sku, title } = product;
+      
+      try {
+        console.log(`🔄 Syncing: ${asin} (${sku})`);
+        
+        let mlbCode = null;
+        
+        // Determine MLB code
+        if (asin.startsWith('MLB')) {
+          mlbCode = asin;
+        } else if (ML_PRODUCT_MAPPINGS[asin] || ML_PRODUCT_MAPPINGS[sku]) {
+          const mapping = ML_PRODUCT_MAPPINGS[asin] || ML_PRODUCT_MAPPINGS[sku];
+          mlbCode = mapping.mlb;
+        } else {
+          mlbCode = await mercadoLivreLookupService.findMLBForSKU(sku, title);
+        }
+        
+        if (!mlbCode) {
+          syncResults.push({ asin, sku, status: 'no_mlb_code' });
+          continue;
+        }
+        
+        // Get real image from ML API
+        const realImageUrl = await mercadoLivreLookupService.getHighQualityImage(mlbCode);
+        
+        if (!realImageUrl) {
+          syncResults.push({ asin, sku, mlbCode, status: 'no_image_found' });
+          continue;
+        }
+        
+        // Update database
+        await pool.query(
+          `UPDATE products 
+           SET image_url = $1, image_source_url = $2, updated_at = NOW()
+           WHERE asin = $3 OR sku = $3`,
+          [realImageUrl, realImageUrl, asin]
+        );
+        
+        syncedCount++;
+        syncResults.push({ 
+          asin, 
+          sku, 
+          mlbCode, 
+          status: 'synced', 
+          imageUrl: realImageUrl.substring(0, 80) + '...'
+        });
+        
+        console.log(`✅ Synced ${asin} with real image`);
+        
+        // Rate limiting
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+      } catch (error: any) {
+        console.error(`❌ Error syncing ${asin}:`, error.message);
+        syncResults.push({ asin, sku, status: 'error', error: error.message });
+      }
+    }
+    
+    // Clear cache
+    imageCache.flushAll();
+    
+    console.log(`🎉 AUTO-SYNC COMPLETED! Synced ${syncedCount} images`);
+    
+    res.json({
+      success: true,
+      message: 'Automatic image synchronization completed',
+      stats: {
+        processed: missingImages.rows.length,
+        synced: syncedCount,
+        successRate: missingImages.rows.length > 0 ? 
+          ((syncedCount / missingImages.rows.length) * 100).toFixed(2) + '%' : '0%'
+      },
+      results: syncResults
+    });
+    
+  } catch (error) {
+    console.error('❌ Auto-sync failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Automatic image synchronization failed',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
 export default router;
