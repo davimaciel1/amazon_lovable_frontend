@@ -383,6 +383,13 @@ export function SalesTable({ data, isLoading, filters, onFiltersChange }: SalesT
               imageUrl = absolutize(rawImageUrl);
             }
           }
+          
+          // Add cache busting to ALL image URLs to force reload of real images
+          if (imageUrl && imageUrl.includes('/app/product-images/')) {
+            const separator = imageUrl.includes('?') ? '&' : '?';
+            const cacheBuster = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            imageUrl = `${imageUrl}${separator}cb=${cacheBuster}&_t=${new Date().getTime()}`;
+          }
         }
 
         // Determine marketplace type early for image URL logic
