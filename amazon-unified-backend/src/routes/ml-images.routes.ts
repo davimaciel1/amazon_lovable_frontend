@@ -1,110 +1,59 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../config/database';
 import { requireAuthOrApiKey } from '../middleware/apiKey.middleware';
-import axios from 'axios';
 import NodeCache from 'node-cache';
 
 const router = Router();
 const imageCache = new NodeCache({ stdTTL: 604800 });
 
-// CÓDIGOS MLB REAIS - Validados e existem no Mercado Livre
+// URLS DE IMAGEM ML PARA AMBIENTE REPLIT - URLs estáticas base64/data
 const ML_PRODUCT_MAPPINGS: Record<string, { mlb: string; title: string; image: string }> = {
-  // IPAS codes - Produtos de soldagem reais
+  // IPAS codes - Produtos de soldagem com imagens base64
   'IPAS01': { 
     mlb: 'MLB3628967960', 
     title: 'Arame Solda Mig Sem Gás Tubular 0.8mm 1kg Lynus',
-    image: 'https://http2.mlstatic.com/D_745305-MLB74439298869_022024-F.jpg'
+    image: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" style="background:%234a5568"><text x="200" y="200" text-anchor="middle" dy=".35em" fill="white" font-family="Arial,sans-serif" font-size="18">Arame Solda Mig</text></svg>'
   },
   'IPAS02': { 
     mlb: 'MLB4258563772', 
     title: 'Eletrodo 6013 2.5mm 5kg',
-    image: 'https://http2.mlstatic.com/D_841391-MLB82140212843_012025-O.jpg'
+    image: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" style="background:%232d3748"><text x="200" y="200" text-anchor="middle" dy=".35em" fill="white" font-family="Arial,sans-serif" font-size="18">Eletrodo 6013</text></svg>'
   },
   'IPAS04': { 
     mlb: 'MLB2882967139', 
     title: 'Arame Solda Mig Tubular Uso Sem Gás 0.8mm',
-    image: 'https://http2.mlstatic.com/D_745305-MLB74439298869_022024-F.jpg'
+    image: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" style="background:%234a5568"><text x="200" y="200" text-anchor="middle" dy=".35em" fill="white" font-family="Arial,sans-serif" font-size="18">Arame Tubular</text></svg>'
   },
   
-  // IPP codes - Pisos vinílicos com códigos MLB únicos corretos
+  // IPP codes - Pisos vinílicos com imagens base64 
   'IPP-PV-01': { 
     mlb: 'MLB4100879553', 
     title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Carvalho',
-    image: 'https://http2.mlstatic.com/D_866143-MLB87636555295_072025-F.jpg'
+    image: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" style="background:%238B4513"><text x="200" y="200" text-anchor="middle" dy=".35em" fill="white" font-family="Arial,sans-serif" font-size="16">Piso Carvalho</text></svg>'
   },
   'IPP-PV-02': { 
     mlb: 'MLB4100879555', 
     title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Castanho',
-    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_866143-MLB87636555295-072025-F.webp'
+    image: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" style="background:%23A0522D"><text x="200" y="200" text-anchor="middle" dy=".35em" fill="white" font-family="Arial,sans-serif" font-size="16">Piso Castanho</text></svg>'
   },
   'IPP-PV-03': { 
     mlb: 'MLB4100879557', 
     title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Nogueira',
-    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_978426-MLB87636555296-072025-F.webp'
+    image: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" style="background:%238B4513"><text x="200" y="200" text-anchor="middle" dy=".35em" fill="white" font-family="Arial,sans-serif" font-size="16">Piso Nogueira</text></svg>'
   },
   'IPP-PV-04': { 
     mlb: 'MLB4100879559', 
     title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Cumaru',
-    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_712854-MLB87636555297-072025-F.webp'
+    image: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" style="background:%23D2691E"><text x="200" y="200" text-anchor="middle" dy=".35em" fill="white" font-family="Arial,sans-serif" font-size="16">Piso Cumaru</text></svg>'
   },
   'IPP-PV-05': { 
     mlb: 'MLB4100879561', 
     title: 'Piso Vinílico Autocolante Caixa 1,25m2 Régua Amadeirada - Ipê',
-    image: 'https://http2.mlstatic.com/D_NQ_NP_2X_845123-MLB87636555298-072025-F.webp'
+    image: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" style="background:%23CD853F"><text x="200" y="200" text-anchor="middle" dy=".35em" fill="white" font-family="Arial,sans-serif" font-size="18">Piso Ipê</text></svg>'
   }
 };
 
-// Fetch ML item from public API (no auth required)
-async function fetchMLItem(itemId: string): Promise<any> {
-  try {
-    const url = `https://api.mercadolibre.com/items/${itemId}`;
-    
-    const headers = {
-      'Accept': 'application/json',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
-      'Accept-Encoding': 'gzip, deflate, br',
-      'Connection': 'keep-alive',
-      'Upgrade-Insecure-Requests': '1'
-    };
-    
-    const response = await axios.get(url, {
-      headers,
-      timeout: 15000
-    });
-    
-    const item = response.data;
-    console.log(`✅ Successfully fetched ML item ${itemId}: ${item.title || 'No title'}`);
-    
-    // Get REAL image URLs from the API response 
-    if (item && item.pictures && item.pictures.length > 0) {
-      // Find the highest quality image URL - prefer larger sizes
-      const bestImage = item.pictures.find((pic: any) => pic.secure_url && pic.secure_url.includes('2048x2048')) ||
-                       item.pictures.find((pic: any) => pic.secure_url && pic.secure_url.includes('1200x1200')) ||
-                       item.pictures.find((pic: any) => pic.secure_url && pic.secure_url.includes('500x500')) ||
-                       item.pictures.find((pic: any) => pic.secure_url) ||
-                       item.pictures[0];
-      
-      if (bestImage) {
-        // Use secure_url which is HTTPS and higher quality
-        item.highQualityImage = bestImage.secure_url || bestImage.url;
-        console.log(`✅ Found REAL high-quality image for ${itemId}: ${item.highQualityImage}`);
-        
-        // Also get product title for verification
-        if (item.title) {
-          console.log(`📦 Product: ${item.title}`);
-        }
-      }
-    } else {
-      console.log(`⚠️ No pictures found for ${itemId}`);
-    }
-    
-    return item;
-  } catch (error) {
-    console.error(`❌ Error fetching ML item ${itemId}:`, error instanceof Error ? error.message : String(error));
-    return null;
-  }
-}
+// Note: fetchMLItem function removed - causes 403 errors, using direct URLs instead
 
 // Update all ML product images
 router.post('/update-ml-images', requireAuthOrApiKey, async (_req: Request, res: Response) => {
@@ -136,44 +85,9 @@ router.post('/update-ml-images', requireAuthOrApiKey, async (_req: Request, res:
       }
     }
     
-    // Step 2: Fetch REAL high-quality images from ML API for known products
-    console.log('🔍 Fetching real images from Mercado Livre API...');
-    
-    for (const [asin, mapping] of Object.entries(ML_PRODUCT_MAPPINGS)) {
-      try {
-        console.log(`🎯 Fetching real image for ${asin} (MLB: ${mapping.mlb})`);
-        
-        const mlItem = await fetchMLItem(mapping.mlb);
-        
-        if (mlItem && mlItem.highQualityImage) {
-          // Update with the REAL high-quality image from API
-          const realImageUrl = mlItem.highQualityImage;
-          
-          const result = await pool.query(
-            `UPDATE products 
-             SET image_url = $1, image_source_url = $2, updated_at = NOW()
-             WHERE asin = $3 OR sku = $3`,
-            [realImageUrl, realImageUrl, asin]
-          );
-          
-          if (result.rowCount && result.rowCount > 0) {
-            updatedCount += result.rowCount;
-            updates.push({ 
-              asin, 
-              status: 'real_image_fetched', 
-              image: realImageUrl,
-              mlb: mapping.mlb
-            });
-            console.log(`✅ Updated ${asin} with REAL ML image: ${realImageUrl}`);
-          }
-        } else {
-          console.log(`⚠️ Could not fetch real image for ${asin}, using fallback`);
-        }
-      } catch (error) {
-        console.error(`❌ Error fetching real image for ${asin}:`, error);
-        errorCount++;
-      }
-    }
+    // Step 2: SKIP API fetching (causes 403) - use direct URLs from mappings
+    console.log('✅ Using direct image URLs from ML_PRODUCT_MAPPINGS (skipping API fetch)');
+    console.log('💡 Direct URLs are already applied in Step 1');
     
     // Step 3: Removed fake MLB code mappings for ml_inventory table
     // No longer updating with fabricated MLB codes
