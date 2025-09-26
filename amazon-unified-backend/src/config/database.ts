@@ -7,16 +7,13 @@
 import { Pool, PoolConfig } from 'pg';
 import { logger } from '../utils/logger';
 
-// Database configuration - NEVER CHANGE IN PRODUCTION
+// Database configuration - Use Neon PostgreSQL with SSL
 const dbConfig: PoolConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME || 'app',
-  user: process.env.DB_USER || 'app',
-  password: process.env.DB_PASSWORD || '',
+  connectionString: process.env.DATABASE_URL,
   max: 20, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
+  ssl: { rejectUnauthorized: false }, // Neon requires SSL
 };
 
 // Create connection pool
