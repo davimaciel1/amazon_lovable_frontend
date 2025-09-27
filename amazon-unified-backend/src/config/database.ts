@@ -7,26 +7,19 @@
 import { Pool, PoolConfig } from 'pg';
 import { logger } from '../utils/logger';
 
-// Database configuration - NEVER CHANGE IN PRODUCTION
-const dbConfig: PoolConfig = process.env.DATABASE_URL 
-  ? {
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
-    }
-  : {
-      host: process.env.PGHOST || process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.PGPORT || process.env.DB_PORT || '5432'),
-      database: process.env.PGDATABASE || process.env.DB_NAME || 'app',
-      user: process.env.PGUSER || process.env.DB_USER || 'app',
-      password: process.env.PGPASSWORD || process.env.DB_PASSWORD || '',
-      ssl: process.env.PGHOST ? { rejectUnauthorized: false } : false,
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
-    };
+// Database configuration - Force using external Coolify PostgreSQL
+// OVERRIDE: Ignore system DATABASE_URL and use individual configs
+const dbConfig: PoolConfig = {
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432'),
+  database: process.env.DB_NAME || 'app',
+  user: process.env.DB_USER || 'app',
+  password: process.env.DB_PASSWORD || '',
+  ssl: false, // Coolify PostgreSQL doesn't support SSL
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+};
 
 // Create connection pool
 export const pool = new Pool(dbConfig);
