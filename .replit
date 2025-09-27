@@ -22,14 +22,6 @@ args = "Frontend"
 task = "workflow.run"
 args = "Backend"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "MCP Server"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "MCP Code Analysis"
-
 [[workflows.workflow]]
 name = "Frontend"
 author = "agent"
@@ -53,30 +45,6 @@ outputType = "console"
 task = "shell.exec"
 args = "cd amazon-unified-backend && npm run dev"
 waitForPort = 8080
-
-[[workflows.workflow]]
-name = "MCP Server"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd mcp-server && node server.js"
-waitForPort = 8008
-
-[[workflows.workflow]]
-name = "MCP Code Analysis"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd mcp-code-analysis-server && node server.js"
-waitForPort = 6000
 
 [[ports]]
 localPort = 5000
