@@ -1,8 +1,6 @@
 # Overview
 
-This is an Amazon Seller SaaS platform that provides comprehensive business intelligence and analytics for Amazon sellers. The system integrates with Amazon's SP-API and Advertising API to deliver real-time sales data, inventory management, product analytics, and advertising metrics through a unified dashboard interface.
-
-The platform consists of multiple interconnected components including a main backend API server, an AI query interface, a code quality orchestration system (CEREBRO), and various frontend interfaces, all centered around a PostgreSQL database containing synchronized Amazon data.
+This project is an Amazon Seller SaaS platform providing business intelligence and analytics for Amazon and Mercado Livre sellers. It integrates with Amazon's SP-API and Advertising API to offer real-time sales, inventory, product, and advertising metrics through a unified dashboard. The platform includes a multi-component backend with an AI query interface, a code quality orchestration system (CEREBRO), and a React-based frontend, all utilizing a PostgreSQL database for synchronized Amazon data. The ambition is to provide comprehensive data insights to empower sellers.
 
 # User Preferences
 
@@ -12,225 +10,76 @@ Preferred communication style: Simple, everyday language.
 
 ## Multi-Component Backend Architecture
 
-The system employs a multi-service architecture with specialized components:
+The system uses a multi-service architecture:
 
-**Main Backend (amazon-unified-backend)**: Express.js server on port 8080 handling core business logic, SP-API integration, and REST API endpoints for sales data, product management, and inventory tracking.
-
-**AI Query Server**: Standalone service on port 8086 providing natural language SQL query interface for data analysis, built with Express.js and OpenAI integration.
-
-**CEREBRO**: Next.js 14 application on port 3001 serving as an internal code quality orchestration system with its own database tables (brain_*) for monitoring and analysis.
+-   **Main Backend (amazon-unified-backend)**: Express.js server on port 8080 handling core business logic, SP-API integration, and REST API endpoints for sales, product, and inventory data.
+-   **AI Query Server**: Express.js service on port 8086 providing a natural language SQL query interface using OpenAI.
+-   **CEREBRO**: Next.js 14 application on port 3001 for internal code quality orchestration, with dedicated database tables (`brain_*`).
+-   **MCP Servers**:
+    -   **MCP Server Principal (Port 8008)**: For Amazon and Mercado Livre sales data analysis, with `search` and `fetch` tools.
+    -   **MCP Code Analysis Server (Port 6000)**: For secure source code analysis and bug detection, with `search_code` and `analyze_file` tools, whitelisting `src` folders and blocking sensitive files.
 
 ## Database Design
 
-**Primary Database**: PostgreSQL hosted at 49.12.191.119:5456 (amazon_monitor database) with comprehensive schema including:
-- Products table with ASIN-based indexing, image management, and inventory tracking
-- Orders and OrderItems tables for sales transaction data
-- Specialized tables for CEREBRO's brain_* operations
-- Image proxy system with Base64-encoded ASINs and caching mechanisms
-
-**Data Relationships**: Foreign key relationships between products (ASIN), orders (amazon_order_id), and order_items for transactional integrity and efficient querying.
+-   **Primary Database**: External PostgreSQL at `49.12.191.119:5456` (`amazon_monitor` database) for all application data.
+    -   **CRITICAL RULE**: Only this external PostgreSQL database is to be used. **NEVER** create new databases, use Replit's internal PostgreSQL, or rely on `DATABASE_URL`. Always use individual `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` environment variables.
+-   **Schema**: Includes tables for products (ASIN-based indexing), orders, order items, and CEREBRO-specific operations.
+-   **Data Relationships**: Foreign key relationships for transactional integrity and efficient querying.
 
 ## Authentication & Security
 
-**Clerk Integration**: Modern authentication system handling user management, session control, and secure access across all components.
-
-**API Security**: JWT-based authentication for API endpoints with middleware validation and CORS configuration for cross-origin requests.
+-   **Clerk Integration**: Handles user management, session control, and secure access.
+-   **API Security**: JWT-based authentication with middleware validation and CORS.
+-   **OAuth Compatibility Shims**: Implemented for ChatGPT MCP integration, serving consistent OAuth metadata across various discovery paths to ensure compatibility.
 
 ## Image Management System
 
-**Proxy Architecture**: Custom image proxy system using Base64-encoded ASINs to serve product images without exposing direct Amazon URLs, implementing cache-control headers and ETag support for performance optimization.
-
-**SP-API Catalog Integration**: Service layer for fetching real product images from Amazon's Catalog API with batch processing and rate limiting compliance.
+-   **Proxy Architecture**: Custom system using Base64-encoded ASINs to proxy product images from Amazon's Catalog API with caching (1-hour TTL) and rate limiting.
 
 ## Data Synchronization
 
-**Real-time Sync**: Automated synchronization services for SP-API data including orders, products, and inventory with configurable scheduling and error handling.
-
-**Advertising API Integration**: Separate integration for Amazon Ads API providing campaign performance metrics, ACOS/ROAS calculations, and advertising spend tracking.
+-   **SP-API Data Sync**: Automated synchronization for orders, products, and inventory with configurable scheduling.
+-   **Advertising API Integration**: Provides campaign performance, ACOS/ROAS, and advertising spend tracking.
 
 ## Frontend Architecture
 
-**React-based Dashboard**: Modern frontend built with React and Vite, featuring responsive design and real-time data visualization components.
-
-**CopilotKit Integration**: AI assistant functionality embedded in the frontend for intelligent data analysis and user interactions.
+-   **React-based Dashboard**: Built with React and Vite for responsive design and data visualization.
+-   **CopilotKit Integration**: AI assistant functionality for intelligent data analysis.
+-   **Detailed Orders System**: `OrdersModal` component displaying comprehensive Amazon and Mercado Livre order details, including customer information, accessed via `/api/orders-detailed`.
 
 ## Performance Optimizations
 
-**Caching Strategy**: Multi-layer caching including in-memory cache for image proxy (7-day TTL), database query optimization with proper indexing, and ETag-based HTTP caching.
+-   **Caching**: Multi-layer caching including in-memory for image proxy, database query optimization with indexing, and ETag-based HTTP caching.
+-   **Rate Limiting**: Compliance with Amazon API rate limits through queuing and retry mechanisms.
 
-**Rate Limiting**: Compliance with Amazon API rate limits through request queuing, retry mechanisms, and configurable delay systems.
+## Development & Deployment Configuration
+
+-   **Demo Mode**: Backend fallback for testing without Amazon API credentials.
+-   **Replit Optimization**: Vite configuration (`allowedHosts`, `hmr` with `wss`) for compatibility with Replit proxy.
+-   **Workflow**: Express.js on localhost:8080 (backend), Vite on 0.0.0.0:5000 (frontend).
+-   **Deployment**: Autoscale deployment target with build processes for frontend and backend, optimized for stateless websites.
 
 # External Dependencies
 
 ## Amazon APIs
-- **SP-API**: Core integration for orders, products, inventory, and catalog data with LWA authentication
-- **Amazon Advertising API**: Campaign performance, advertising metrics, and spend tracking with OAuth 2.0 flow
+
+-   **SP-API**: For orders, products, inventory, and catalog data (LWA authentication).
+-   **Amazon Advertising API**: For campaign performance and advertising metrics (OAuth 2.0).
 
 ## Authentication Services
-- **Clerk**: User authentication, session management, and access control across all application components
+
+-   **Clerk**: User authentication, session management, and access control.
 
 ## AI & ML Services
-- **OpenAI API**: Powers CopilotKit assistant and CEREBRO's AI analysis features for natural language processing and data insights
+
+-   **OpenAI API**: Powers CopilotKit and CEREBRO's AI analysis features.
 
 ## Database & Infrastructure
-- **PostgreSQL**: Primary database for all application data with specialized configurations for high-performance querying
-- **Node.js Runtime**: Backend services built on Node.js with Express.js framework for API development
+
+-   **PostgreSQL**: Primary database for all application data (hosted externally at `49.12.191.119:5456`).
+-   **Node.js Runtime**: For backend services (Express.js).
 
 ## Additional Integrations
-- **WebSocket Support**: Real-time updates for dashboard metrics and live data synchronization
-- **Streamlit**: Python-based analytics interface for advanced data visualization and reporting (app.py)
 
-# Replit Environment Setup
-
-## Recent Changes (September 2025)
-
-## MCP Servers for ChatGPT Integration (September 24, 2025)
-
-**COMPLETE MCP SYSTEM**: Successfully implemented two fully functional MCP (Model Context Protocol) servers for ChatGPT integration:
-
-### **MCP Server Principal (Port 8008)**
-- **Purpose**: Amazon and Mercado Livre sales data analysis
-- **URL**: https://84f2dc65-b2d9-4485-b847-7c30018ead3c-00-3bqifa6y30a3j.picard.replit.dev:8008/
-- **Tools**: `search` (find products/sales data), `fetch` (detailed product analysis/dashboard stats)
-- **Data**: Real sales data (R$ 55,657.93 revenue, 861 units sold, 12 active products)
-- **Protocol**: JSON-RPC 2.0 fully compliant for ChatGPT compatibility
-
-### **MCP Code Analysis Server (Port 6000)**
-- **Purpose**: Secure source code analysis and bug detection
-- **URL**: https://84f2dc65-b2d9-4485-b847-7c30018ead3c-00-3bqifa6y30a3j.picard.replit.dev:6000/
-- **Tools**: `search_code` (find files by name/pattern), `analyze_file` (detailed code analysis)
-- **Security**: Whitelist for safe directories (src folders only), blocks sensitive files (.env, .key)
-- **Protocol**: JSON-RPC 2.0 with structured responses and audit logging
-
-**TECHNICAL IMPLEMENTATION**:
-- Both servers use Fastify with CORS enabled for cross-origin requests
-- Proper error handling with JSON-RPC 2.0 error codes (-32600, -32601, -32603)
-- Structured text responses optimized for ChatGPT consumption
-- Real-time data integration with existing Amazon/ML APIs
-- Comprehensive security controls for code analysis server
-
-**USAGE**: Add both URLs to ChatGPT MCP settings for AI assistant access to sales analytics and secure code analysis capabilities.
-
-### **OAuth Compatibility Shims (September 25, 2025)**
-**COMPLETE CHATGPT COMPATIBILITY**: Successfully implemented OAuth discovery shims to resolve ChatGPT MCP integration issues:
-
-**Problem Solved**: ChatGPT Developer Mode was making OAuth discovery requests to unusual URL patterns that returned 404 errors:
-- `/.well-known/oauth-protected-resource/sse`
-- `/.well-known/oauth-authorization-server/sse` 
-- `/sse/.well-known/openid-configuration`
-
-**Solution Implemented**: OAuth discovery shims serving identical metadata across all possible discovery paths:
-- **AS Metadata Endpoints**: 5 paths covering all ChatGPT discovery patterns
-- **PR Metadata Endpoints**: 3 paths for protected resource discovery
-- **RFC 8414 Compliance**: Metadata accurately reflects only implemented features (`authorization_code` grant, `read` scope)
-- **Enhanced SSE 401**: Optimized with proper `WWW-Authenticate` and `Link` headers for OAuth guidance
-
-**Technical Details**:
-- All endpoints return HTTP 200 (no more 404 errors blocking connector creation)
-- Metadata consistency across Authorization Server and Protected Resource specifications
-- PKCE (S256) support with `token_endpoint_auth_methods_supported: ["none"]`
-- Accurate scope advertisement matching actual token issuance
-
-**RESULT**: Both MCP servers now fully compatible with ChatGPT OAuth handshake process, eliminating connectivity issues that prevented proper MCP connector setup.
-
-### **MCP Protocol Implementation Fix (September 25, 2025)**
-**COMPLETE JSON-RPC 2.0 COMPLIANCE**: Fixed critical missing `initialize` method in both MCP servers to resolve ChatGPT integration failures:
-
-**Problem Resolved**: ChatGPT Developer Mode was failing during MCP handshake due to missing `initialize` method returning "Method not found" (-32601) error, preventing proper protocol establishment.
-
-**Solution Implemented**:
-- **Added `initialize` Method**: Both servers now properly handle the required MCP initialize handshake with:
-  - Protocol version: "2024-11-05" (latest MCP specification)
-  - Tool capabilities declaration
-  - Proper server information metadata
-- **Complete Protocol Testing**: All MCP methods tested and confirmed working:
-  - `initialize`: ✅ Proper handshake response
-  - `tools/list`: ✅ Enumerates available tools with JSON schemas
-  - `tools/call`: ✅ Executes tools and returns real data
-
-**Technical Details**:
-- JSON-RPC 2.0 fully compliant with proper error codes and response structures
-- MCP Server (port 8008): Returns sales data with R$ 55,657+ revenue statistics
-- Code Analysis Server (port 6000): Returns 20+ TypeScript files for analysis
-- Both endpoints tested via cURL confirming real-time functionality
-
-**READY FOR PRODUCTION**: Both MCP servers now fully compatible with ChatGPT Developer Mode for AI assistant access to sales analytics and secure code analysis.
-
-# Recent Changes (September 2025)
-
-## MLB Code Data Integrity Fixes (September 24, 2025)
-
-**COMPREHENSIVE FIX**: Completely resolved all fabricated MLB codes and image display issues
-- **Problem Identified**: MLB codes contained invalid hyphens and incorrect digit counts, causing placeholder images
-- **Root Cause**: Cache system with 7-day TTL prevented updated images from displaying
-
-**CORRECTED MLB CODE MAPPINGS** (Valid Format - No Hyphens):
-- IPAS01: MLB3628967960 (Arame Solda Mig Sem Gás Tubular 0.8mm 1kg Lynus) 
-- IPAS02: MLB4258563772 (Eletrodo 6013 2.5mm 5kg)
-- IPAS04: MLB2882967139 (Arame Solda Mig Tubular Uso Sem Gás 0.8mm)
-
-**SYSTEM IMPROVEMENTS**:
-- **Cache Optimization**: Reduced cache TTL from 7 days to 1 hour for faster image updates
-- **Validation System**: Added automatic MLB code format validation (MLB + 9-10 digits)
-- **Frontend Cache Busting**: Implemented aggressive cache busting with unique timestamps
-- **Data Integrity**: Real product images from verified Mercado Livre listings
-- **Error Prevention**: Validation runs on startup to catch invalid codes before deployment
-
-## Order Details Interface Implementation (September 14, 2025)
-
-**Complete Detailed Orders System**: Successfully implemented comprehensive order viewing functionality with the following features:
-- **Unified API Endpoint**: `/api/orders-detailed` endpoint combining Amazon and Mercado Livre orders with complete customer information including addresses, phone numbers, and detailed pricing
-- **Interactive UI Component**: OrdersModal accessible via clickable Orders column in SalesTable, featuring responsive drawer/modal design with filtering and pagination
-- **Security & Authentication**: ClerkAuth middleware protection for sensitive customer data with proper API key authentication through ApiService
-- **Performance Optimization**: Efficient query filtering with proper WHERE clause ordering before GROUP BY operations to handle large datasets
-- **Data Completeness**: Full customer details including shipping addresses, billing information, contact details, and comprehensive order pricing breakdown
-
-Successfully configured the Amazon Seller Dashboard system for optimal performance in the Replit cloud environment with the following key implementations:
-
-## Development Configuration
-
-**Demo Mode Implementation**: Backend configured with fallback demo mode when Amazon API credentials are unavailable, ensuring full functionality for development and testing without external dependencies.
-
-**Environment Safety**: Configured with `DISABLE_SCHEDULES=true` and `ENABLE_AUTO_SYNC=false` to prevent unintended side effects in development environment.
-
-## Frontend Optimization for Replit
-
-**Vite Host Configuration**: Fixed critical allowedHosts configuration for Replit proxy compatibility:
-```typescript
-allowedHosts: ["localhost", "127.0.0.1", ".replit.dev", ".replit.app"]
-```
-
-**HMR Configuration**: Optimized Hot Module Replacement for secure WebSocket connections through Replit proxy:
-```typescript
-hmr: {
-  protocol: 'wss',
-  clientPort: 443,
-  overlay: true,
-}
-```
-
-## Workflow Configuration
-
-**Backend Workflow**: Express.js server on localhost:8080 for internal API communication
-**Frontend Workflow**: Vite development server on 0.0.0.0:5000 for external access through Replit proxy
-
-## Database Integration
-
-**PostgreSQL Setup**: Successfully connected to Replit's integrated PostgreSQL database with proper environment variable configuration for seamless development.
-
-## Deployment Configuration
-
-**Production Ready**: Configured autoscale deployment target with:
-- Build process for both frontend (Vite) and backend compilation
-- Production run configuration using Vite preview for frontend and Express for backend
-- Optimized for stateless website deployment with database state management
-
-## Development Status
-
-✅ **Fully Operational**: Both frontend and backend running successfully with full communication  
-✅ **Hot Reload**: Vite HMR connected and functioning  
-✅ **Database**: PostgreSQL connected and accessible  
-✅ **Deployment**: Production deployment configuration completed  
-✅ **Proxy Compatibility**: All host configuration issues resolved for Replit environment  
-✅ **Order Management**: Complete detailed orders interface with customer information display  
-✅ **API Security**: ClerkAuth middleware and ApiService integration for secure data access
+-   **WebSocket Support**: For real-time updates.
+-   **Streamlit**: Python-based analytics interface (`app.py`).
